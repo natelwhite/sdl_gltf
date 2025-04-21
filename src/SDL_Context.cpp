@@ -170,7 +170,7 @@ SDL_AppResult SDL_Context::init() {
 			.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
 			.instance_step_rate = 0,
 		}, {
-			.slot = 0,
+			.slot = 1,
 			.pitch = sizeof(glm::vec3),
 			.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
 			.instance_step_rate = 0,
@@ -185,7 +185,7 @@ SDL_AppResult SDL_Context::init() {
 			.location = 1,
 			.buffer_slot = 1,
 			.format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-			.offset = sizeof(glm::vec3)
+			.offset = 0
 	}};
 	SDL_GPUColorTargetDescription geo_color_target_description {
 		.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
@@ -273,7 +273,7 @@ SDL_AppResult SDL_Context::init() {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUSampler failed:\n\t%s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
-	loadGLTF(SDL_GetBasePath() + std::string("cubes.glb"));
+	loadGLTF(SDL_GetBasePath() + std::string("meshes/cubes.glb"));
 	const glm::vec3 pos {-60, 60, -60};
 	const glm::mat4 rot_mat { glm::lookAt(pos, {0, 0, 0}, {0, 1, 0}) };
 	const glm::quat rot_quat { glm::quat_cast(rot_mat) };
@@ -415,7 +415,7 @@ SDL_AppResult SDL_Context::iterate() {
 	for (const Mesh &mesh : m_objects) {
 		uniforms.model = mesh.model_mat();
 		SDL_PushGPUVertexUniformData(cmdbuf, 0, &uniforms, sizeof(uniforms));
-		SDL_DrawGPUIndexedPrimitives(render_pass, mesh.num_indices, 1, 0, 0, 0);
+		SDL_DrawGPUIndexedPrimitives(render_pass, mesh.num_indices, 1, mesh.first_index, 0, 0);
 	}
 	SDL_EndGPURenderPass(render_pass);
 // render color & depth textures to window
@@ -443,7 +443,7 @@ SDL_AppResult SDL_Context::openGLTF() {
 		{ "GLB", "glb" },
 		{ "GLTF", "gltf" },
 	};
-	SDL_ShowOpenFileDialog(callback, this, m_window, filter.data(), filter.size(), SDL_GetBasePath(), 1);
+	SDL_ShowOpenFileDialog(callback, this, m_window, filter.data(), filter.size(), (SDL_GetBasePath() + std::string("meshes")).data(), 1);
 	return SDL_APP_CONTINUE;
 }
 
@@ -517,31 +517,31 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 			norm_total_buf_size += asset->bufferViews.at(norm_access.bufferViewIndex.value()).byteLength;
 			norm_total_count += norm_access.count;
 		}
-		m_objects.emplace_back(pos, scale, rot, i_total_count - i_count_start);
+		m_objects.emplace_back(pos, scale, rot, i_total_count - i_count_start, i_count_start);
 	});
 	// create buffers
-	SDL_GPUBufferCreateInfo v_buf_create {
-		.usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-		.size = v_total_buf_size,
-	};
 	SDL_GPUBufferCreateInfo i_buf_create {
 		.usage = SDL_GPU_BUFFERUSAGE_INDEX,
 		.size = i_total_buf_size,
+	};
+	SDL_GPUBufferCreateInfo v_buf_create {
+		.usage = SDL_GPU_BUFFERUSAGE_VERTEX,
+		.size = v_total_buf_size,
 	};
 	SDL_GPUBufferCreateInfo norm_buf_create {
 		.usage = SDL_GPU_BUFFERUSAGE_VERTEX,
 		.size = norm_total_buf_size
 	};
 	// if there already is a buffer, release it
-	if (m_v_buf) { SDL_ReleaseGPUBuffer(m_gpu, m_v_buf); }
-	m_v_buf = SDL_CreateGPUBuffer(m_gpu, &v_buf_create);
-	if (!m_v_buf) {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUBuffer failed:\n\t%s", SDL_GetError());
-		return;
-	}
 	if (m_i_buf) { SDL_ReleaseGPUBuffer(m_gpu, m_i_buf); }
 	m_i_buf = SDL_CreateGPUBuffer(m_gpu, &i_buf_create);
 	if (!m_i_buf) {
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUBuffer failed:\n\t%s", SDL_GetError());
+		return;
+	}
+	if (m_v_buf) { SDL_ReleaseGPUBuffer(m_gpu, m_v_buf); }
+	m_v_buf = SDL_CreateGPUBuffer(m_gpu, &v_buf_create);
+	if (!m_v_buf) {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUBuffer failed:\n\t%s", SDL_GetError());
 		return;
 	}
@@ -551,6 +551,7 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUBuffer failed:\n\t%s", SDL_GetError());
 	}
 
+	Uint32 i_buf_offset { }, v_buf_offset { }, norm_buf_offset { };
 	SDL_GPUCommandBuffer *cmdbuf { SDL_AcquireGPUCommandBuffer(m_gpu) };
 	fastgltf::iterateSceneNodes(asset.get(), asset->defaultScene.value(), fastgltf::math::fmat4x4(), 
 								[&, cmdbuf](fastgltf::Node &node, fastgltf::math::fmat4x4 TRS) {
@@ -564,7 +565,7 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 			const fastgltf::BufferView &i_buffer_view {
 				asset->bufferViews.at( i_access.bufferViewIndex.value() )
 			};
-			const size_t i_buf_size { i_buffer_view.byteLength };
+			const Uint32 i_buf_size { static_cast<Uint32>(i_buffer_view.byteLength) };
 			const fastgltf::Buffer &i_buffer { asset->buffers.at(i_buffer_view.bufferIndex) };
 			// get vert info
 			const fastgltf::Accessor &v_access {
@@ -573,7 +574,7 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 			const fastgltf::BufferView &v_buffer_view { 
 				asset->bufferViews.at( v_access.bufferViewIndex.value() )
 			};
-			const size_t v_buf_size { v_buffer_view.byteLength };
+			const Uint32 v_buf_size { static_cast<Uint32>(v_buffer_view.byteLength) };
 			const fastgltf::Buffer &v_buffer { asset->buffers.at(v_buffer_view.bufferIndex) };
 			// get normals info
 			const fastgltf::Accessor &norm_access {
@@ -582,25 +583,31 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 			const fastgltf::BufferView &norm_buffer_view {
 				asset->bufferViews.at( norm_access.bufferViewIndex.value() )
 			};
-			const size_t norm_buf_size { norm_buffer_view.byteLength };
+			const Uint32 norm_buf_size { static_cast<Uint32>(norm_buffer_view.byteLength) };
 			const fastgltf::Buffer &norm_buffer {asset->buffers.at(norm_buffer_view.bufferIndex) };
 
 			// create transfer buffer
 			SDL_GPUTransferBufferCreateInfo trans_buf_create {
 				.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-				.size = static_cast<Uint32>(v_buf_size + i_buf_size + norm_buf_size),
+				.size = i_buf_size + v_buf_size + norm_buf_size,
 			};
 			SDL_GPUTransferBuffer *trans_buf = SDL_CreateGPUTransferBuffer(m_gpu, &trans_buf_create);
 			if (!trans_buf) {
 				SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUTransferBuffer failed:\n\t%s", SDL_GetError());
 				return;
 			}
-			glm::vec3 *v_data { static_cast<glm::vec3*>(SDL_MapGPUTransferBuffer(m_gpu, trans_buf, false)) };
-			fastgltf::copyFromAccessor<glm::vec3>(asset.get(), v_access, v_data);
-			Uint16 *i_data { reinterpret_cast<Uint16*>(v_data + v_access.count) };
+			Uint16 *i_data { static_cast<Uint16*>(SDL_MapGPUTransferBuffer(m_gpu, trans_buf, false)) };
 			fastgltf::copyFromAccessor<Uint16>(asset.get(), i_access, i_data);
-			glm::vec3 *norm_data { reinterpret_cast<glm::vec3*>(i_data + i_access.count) };
+			glm::vec3 *v_data { reinterpret_cast<glm::vec3*>(i_data + i_access.count) };
+			fastgltf::copyFromAccessor<glm::vec3>(asset.get(), v_access, v_data);
+			glm::vec3 *norm_data { v_data + v_access.count };
 			fastgltf::copyFromAccessor<glm::vec3>(asset.get(), norm_access, norm_data);
+			SDL_Log("Num indices: %lu", i_access.count);
+			for (int i = 0; i < i_access.count; ++i) {
+				const Uint16 index { *(i_data + i) };
+				const glm::vec3 norm { *(v_data + index + v_access.count) };
+				SDL_Log("\t%i: (%f, %f, %f)", index, norm.x, norm.y, norm.z);
+			}
 			SDL_UnmapGPUTransferBuffer(m_gpu, trans_buf);
 			// move data to gpu using copy pass
 			SDL_GPUCopyPass *copypass { SDL_BeginGPUCopyPass(cmdbuf) };
@@ -608,28 +615,31 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 				.transfer_buffer = trans_buf,
 				.offset = 0
 			};
-			SDL_GPUBufferRegion v_region {
-				.buffer = m_v_buf,
-				.offset = 0,
-				.size = static_cast<Uint32>(v_buf_size)
-			};
-			SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &v_region, false);
-			trans_buf_loc.offset = v_buf_size;
 			SDL_GPUBufferRegion i_region {
 				.buffer = m_i_buf,
-				.offset = static_cast<Uint32>(v_buf_size),
-				.size = static_cast<Uint32>(i_buf_size)
+				.offset = i_buf_offset,
+				.size = i_buf_size
 			};
-			SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &i_region, false);
-			trans_buf_loc.offset = v_buf_size + i_buf_size;
+			SDL_GPUBufferRegion v_region {
+				.buffer = m_v_buf,
+				.offset = v_buf_offset,
+				.size = v_buf_size
+			};
 			SDL_GPUBufferRegion norm_region {
 				.buffer = m_norm_buf,
-				.offset = static_cast<Uint32>(i_buf_size),
-				.size = static_cast<Uint32>(norm_buf_size)
+				.offset = norm_buf_offset,
+				.size = norm_buf_size
 			};
+			SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &i_region, false);
+			trans_buf_loc.offset += i_buf_size;
+			SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &v_region, false);
+			trans_buf_loc.offset += v_buf_size;
 			SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &norm_region, false);
 			SDL_EndGPUCopyPass(copypass);
 			SDL_ReleaseGPUTransferBuffer(m_gpu, trans_buf);
+			i_buf_offset += i_buf_size;
+			v_buf_offset += v_buf_size;
+			norm_buf_offset += norm_buf_size;
 		}
 	});
 	SDL_SubmitGPUCommandBuffer(cmdbuf);

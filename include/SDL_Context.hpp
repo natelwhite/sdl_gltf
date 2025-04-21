@@ -14,7 +14,7 @@
 struct Mesh {
 	glm::vec3 pos, scale;
 	glm::quat rot;
-	Uint32 num_indices;
+	Uint32 num_indices, first_index;
 	glm::mat4x4 model_mat() const {
 		return { glm::scale(glm::translate(glm::mat4(1), pos), scale) * glm::mat4_cast(rot) };
 	}
