@@ -602,12 +602,6 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 			fastgltf::copyFromAccessor<glm::vec3>(asset.get(), v_access, v_data);
 			glm::vec3 *norm_data { v_data + v_access.count };
 			fastgltf::copyFromAccessor<glm::vec3>(asset.get(), norm_access, norm_data);
-			SDL_Log("Num indices: %lu", i_access.count);
-			for (int i = 0; i < i_access.count; ++i) {
-				const Uint16 index { *(i_data + i) };
-				const glm::vec3 norm { *(v_data + index + v_access.count) };
-				SDL_Log("\t%i: (%f, %f, %f)", index, norm.x, norm.y, norm.z);
-			}
 			SDL_UnmapGPUTransferBuffer(m_gpu, trans_buf);
 			// move data to gpu using copy pass
 			SDL_GPUCopyPass *copypass { SDL_BeginGPUCopyPass(cmdbuf) };
