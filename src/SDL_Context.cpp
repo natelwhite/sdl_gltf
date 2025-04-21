@@ -551,7 +551,6 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUBuffer failed:\n\t%s", SDL_GetError());
 	}
 
-	Uint32 v_buf_offset { }, i_buf_offset { }, norm_buf_offset { };
 	SDL_GPUCommandBuffer *cmdbuf { SDL_AcquireGPUCommandBuffer(m_gpu) };
 	fastgltf::iterateSceneNodes(asset.get(), asset->defaultScene.value(), fastgltf::math::fmat4x4(), 
 								[&, cmdbuf](fastgltf::Node &node, fastgltf::math::fmat4x4 TRS) {
@@ -598,9 +597,9 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 			}
 			glm::vec3 *v_data { static_cast<glm::vec3*>(SDL_MapGPUTransferBuffer(m_gpu, trans_buf, false)) };
 			fastgltf::copyFromAccessor<glm::vec3>(asset.get(), v_access, v_data);
-			Uint16 *i_data { reinterpret_cast<Uint16*>(v_data + v_buf_size / sizeof(glm::vec3)) };
+			Uint16 *i_data { reinterpret_cast<Uint16*>(v_data + v_access.count) };
 			fastgltf::copyFromAccessor<Uint16>(asset.get(), i_access, i_data);
-			glm::vec3 *norm_data { reinterpret_cast<glm::vec3*>(i_data + i_buf_size / sizeof(Uint16)) };
+			glm::vec3 *norm_data { reinterpret_cast<glm::vec3*>(i_data + i_access.count) };
 			fastgltf::copyFromAccessor<glm::vec3>(asset.get(), norm_access, norm_data);
 			SDL_UnmapGPUTransferBuffer(m_gpu, trans_buf);
 			// move data to gpu using copy pass
@@ -611,33 +610,26 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 			};
 			SDL_GPUBufferRegion v_region {
 				.buffer = m_v_buf,
-				.offset = v_buf_offset,
+				.offset = 0,
 				.size = static_cast<Uint32>(v_buf_size)
 			};
 			SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &v_region, false);
 			trans_buf_loc.offset = v_buf_size;
 			SDL_GPUBufferRegion i_region {
 				.buffer = m_i_buf,
-				.offset = i_buf_offset,
+				.offset = static_cast<Uint32>(v_buf_size),
 				.size = static_cast<Uint32>(i_buf_size)
 			};
 			SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &i_region, false);
 			trans_buf_loc.offset = v_buf_size + i_buf_size;
 			SDL_GPUBufferRegion norm_region {
 				.buffer = m_norm_buf,
-				.offset = norm_buf_offset,
+				.offset = static_cast<Uint32>(i_buf_size),
 				.size = static_cast<Uint32>(norm_buf_size)
 			};
-			SDL_Log("num norms: %i", norm_total_count);
-			for (int i = 0; i < norm_total_count; ++i) {
-				SDL_Log("(%f, %f, %f)", (norm_data + i)->x, (norm_data + i)->y, (norm_data + i)->z);
-			}
 			SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &norm_region, false);
 			SDL_EndGPUCopyPass(copypass);
 			SDL_ReleaseGPUTransferBuffer(m_gpu, trans_buf);
-			v_buf_offset += v_buf_size;
-			i_buf_offset += i_buf_size;
-			norm_buf_offset += norm_buf_size;
 		}
 	});
 	SDL_SubmitGPUCommandBuffer(cmdbuf);
