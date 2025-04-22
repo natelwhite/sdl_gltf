@@ -274,7 +274,7 @@ SDL_AppResult SDL_Context::init() {
 		return SDL_APP_FAILURE;
 	}
 	loadGLTF(SDL_GetBasePath() + std::string("meshes/cubes.glb"));
-	const glm::vec3 pos {-60, 60, -60};
+	const glm::vec3 pos {60, 60, 60};
 	const glm::mat4 rot_mat { glm::lookAt(pos, {0, 0, 0}, {0, 1, 0}) };
 	const glm::quat rot_quat { glm::quat_cast(rot_mat) };
 	const glm::vec2 dimensions { m_width, m_height };
