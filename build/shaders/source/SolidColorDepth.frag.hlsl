@@ -13,9 +13,16 @@ float LinearizeDepth(float depth, float near, float far) {
     return ((2.0 * near * far) / (far + near - z * (far - near))) / far;
 }
 
-Output main(float4 Normal : Normal, float4 Position : SV_Position) {
+Output main(float3 Normal : NORMAL, float4 Position : SV_Position) {
+	float ambient_strength = 0.1;
+	float light_intensity = 1.0;
+	float3 base_color = float3(1.0f, 1.0f, 1.0f);
+	float3 light_direction = float3(1.0f, 1.0f, 1.0f);
+	float3 surface_alignment = dot(normalize(light_direction), Normal);
+	float3 diffuse_strength = light_intensity * surface_alignment;
+	float3 result_color = base_color * (ambient_strength + diffuse_strength);
     Output result;
-    result.Color = float4(saturate(Normal));
+    result.Color = float4(Normal * (diffuse_strength + ambient_strength), 1.0f);
     result.Depth = LinearizeDepth(Position.z, NearPlane, FarPlane);
     return result;
 }
