@@ -185,6 +185,11 @@ SDL_AppResult SDL_Context::init() {
 			.location = 1,
 			.buffer_slot = 1,
 			.format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+			.offset = 0,
+		}, {
+			.location = 2,
+			.buffer_slot = 1,
+			.format = SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM,
 			.offset = 0
 	}};
 	SDL_GPUColorTargetDescription geo_color_target_description {
@@ -215,6 +220,8 @@ SDL_AppResult SDL_Context::init() {
 		.target_info = {
 			.color_target_descriptions = &geo_color_target_description,
 			.num_color_targets = 1,
+			.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D16_UNORM,
+			.has_depth_stencil_target = true,
 		},
 	};
 	m_geo_pipeline = SDL_CreateGPUGraphicsPipeline(m_gpu, &geo_create);
@@ -341,6 +348,13 @@ SDL_AppResult SDL_Context::event(SDL_Event *e) {
 		}
 		break;
 	}
+	case SDL_EVENT_KEY_DOWN:
+		switch(e->key.key) {
+		case SDLK_R:
+			openGLTF();
+			break;
+		}
+		break;
 	}
 	return SDL_APP_CONTINUE;
 }
@@ -385,7 +399,7 @@ SDL_AppResult SDL_Context::iterate() {
 
 	// render geometry to color & depth textures
 	SDL_GPURenderPass *render_pass { SDL_BeginGPURenderPass(cmdbuf, &color_target_info, 1, &depth_stencil_target_info) };
-	if (m_v_buf && m_i_buf) {
+	if (m_i_buf && m_v_buf && m_norm_buf) {
 		SDL_GPUBufferBinding i_buf_binding {
 			.buffer = m_i_buf,
 			.offset = 0
@@ -421,11 +435,11 @@ SDL_AppResult SDL_Context::iterate() {
 // render color & depth textures to window
 	SDL_GPUColorTargetInfo swapchain_target_info {
 		.texture = swapchain,
-		.clear_color = {0, 0, 0, 0},
+		.clear_color = {0.2f, 0.5f, 0.4f, 1.0f},
 		.load_op = SDL_GPU_LOADOP_CLEAR,
 		.store_op = SDL_GPU_STOREOP_STORE
 	};
-	SDL_BeginGPURenderPass(cmdbuf, &swapchain_target_info, 1, nullptr);
+	render_pass = SDL_BeginGPURenderPass(cmdbuf, &swapchain_target_info, 1, nullptr);
 	SDL_BindGPUGraphicsPipeline(render_pass, m_pp_pipeline);
 	SDL_GPUTextureSamplerBinding sampler_bindings[] {
 		{ .texture = m_color, .sampler = m_depth_sampler },
@@ -448,6 +462,7 @@ SDL_AppResult SDL_Context::openGLTF() {
 }
 
 void SDL_Context::loadGLTF(const std::filesystem::path& path) {
+	m_objects.clear();
 	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Loading GLTF file: %s", path.c_str());
 	fastgltf::Parser parser;
 	fastgltf::Expected<fastgltf::GltfDataBuffer> data = fastgltf::GltfDataBuffer::FromPath(path);
@@ -663,7 +678,6 @@ void Camera::rot(const float &pitch, const float &yaw) {
 }
 void Camera::iterate() {
 	glm::vec3 acc = {0, 0, 0};
-	try {
 	if (m_keys.contains(SDL_SCANCODE_W) && m_keys.at(SDL_SCANCODE_W))
 		acc += m_speed * forward();
 	if (m_keys.contains(SDL_SCANCODE_A) && m_keys.at(SDL_SCANCODE_A))
@@ -676,9 +690,6 @@ void Camera::iterate() {
 		acc += m_speed * up();
 	if (m_keys.contains(SDL_SCANCODE_Q) && m_keys.at(SDL_SCANCODE_Q))
 		acc += m_speed * -up();
-	} catch (const std::out_of_range &e) {
-		SDL_Log("Error: %s", e.what());
-	}
 	m_vel += acc;
 	m_pos += m_vel;
 	const glm::vec3 drag { m_vel * -0.1f };
@@ -711,7 +722,10 @@ void Camera::event(SDL_Event *e) {
 		break;
 	case SDL_EVENT_MOUSE_MOTION: {
 		const float sensitivity { 0.001f };
-		rot(e->motion.yrel * sensitivity, e->motion.xrel * sensitivity);
+		float pitch { e->motion.yrel * sensitivity };
+		float yaw { e->motion.xrel * sensitivity };
+		m_rot = glm::rotate(m_rot, pitch, right());
+		m_rot = glm::rotate(m_rot, yaw, {0, 1, 0});
 		break;
 	}
 	case SDL_EVENT_WINDOW_RESIZED:
