@@ -23,6 +23,10 @@ struct Mesh {
 struct VertexUniforms {
 	glm::mat4 proj_view, model;
 };
+struct FragmentUniforms {
+	glm::vec2 near_far;
+	glm::vec3 view_pos;
+};
 
 class Camera {
 public:

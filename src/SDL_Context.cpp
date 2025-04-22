@@ -394,8 +394,11 @@ SDL_AppResult SDL_Context::iterate() {
 	float aspect_ratio { static_cast<float>(m_width) / static_cast<float>(m_height) };
 	if (!swapchain) { return SDL_APP_FAILURE; }
 	const Camera &active { m_cams.at(m_active_cam_index) };
-	glm::vec2 near_far { active.getNearFar() };
-	SDL_PushGPUFragmentUniformData(cmdbuf, 0, (float[]) {near_far.x, near_far.y}, sizeof(float) * 2);
+	FragmentUniforms frag_uniforms { 
+		active.getNearFar(),
+		active.getPosition()
+	};
+	SDL_PushGPUFragmentUniformData(cmdbuf, 0, &frag_uniforms, sizeof(frag_uniforms));
 
 	// render geometry to color & depth textures
 	SDL_GPURenderPass *render_pass { SDL_BeginGPURenderPass(cmdbuf, &color_target_info, 1, &depth_stencil_target_info) };
@@ -424,11 +427,11 @@ SDL_AppResult SDL_Context::iterate() {
 		const float dist_b { glm::distance(active.getPosition(), b.pos) };
 		return dist_a ? dist_a > dist_b : dist_b;
 	});
-	VertexUniforms uniforms;
-	uniforms.proj_view = active.proj() * active.view();
+	VertexUniforms vert_uniforms;
+	vert_uniforms.proj_view = active.proj() * active.view();
 	for (const Mesh &mesh : m_objects) {
-		uniforms.model = mesh.model_mat();
-		SDL_PushGPUVertexUniformData(cmdbuf, 0, &uniforms, sizeof(uniforms));
+		vert_uniforms.model = mesh.model_mat();
+		SDL_PushGPUVertexUniformData(cmdbuf, 0, &vert_uniforms, sizeof(vert_uniforms));
 		SDL_DrawGPUIndexedPrimitives(render_pass, mesh.num_indices, 1, mesh.first_index, 0, 0);
 	}
 	SDL_EndGPURenderPass(render_pass);

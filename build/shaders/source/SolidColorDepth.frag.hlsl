@@ -1,11 +1,16 @@
 cbuffer UBO : register(b0, space3) {
-    float NearPlane;
-    float FarPlane;
+    float2 near_far;
+	float3 view_pos;
 };
 
 struct Output {
     float4 Color : SV_Target0;
     float Depth : SV_Depth;
+};
+struct Input {
+	float4 Position : SV_POSITION;
+	float3 Normal : NORMAL;
+	float4 WorldPos : TEXCOORD1;
 };
 
 float LinearizeDepth(float depth, float near, float far) {
@@ -13,16 +18,22 @@ float LinearizeDepth(float depth, float near, float far) {
     return ((2.0 * near * far) / (far + near - z * (far - near))) / far;
 }
 
-Output main(float3 Normal : NORMAL, float4 Position : SV_Position) {
-	float ambient_strength = 0.1;
-	float light_intensity = 1.0;
-	float3 base_color = float3(1.0f, 1.0f, 1.0f);
-	float3 light_direction = float3(1.0f, 1.0f, 1.0f);
-	float3 surface_alignment = dot(normalize(light_direction), Normal);
-	float3 diffuse_strength = light_intensity * surface_alignment;
-	float3 result_color = base_color * (ambient_strength + diffuse_strength);
+Output main(Input input) {
+	float3 light_color = (1, 1, 1);
+	float3 light_pos = (0, 100, 50);
+
+	float3 ambient = 0.1 * light_color;
+
+	float3 light_direction = normalize(light_pos - input.WorldPos.xyz);
+	float3 diffuse = max(0, dot(light_direction, input.Normal)) * light_color;
+
+	float3 view_direction = normalize(view_pos - input.WorldPos.xyz);
+	float3 reflect_direction = reflect(-light_direction, input.Normal);
+	float3 specular = pow(max(dot(view_direction, reflect_direction), 0.0), 32) * 0.5 * light_color;
+
+	float3 obj_color = float3(0.6f, 0.3f, 0.2f);
     Output result;
-    result.Color = float4(Normal * (diffuse_strength + ambient_strength), 1.0f);
-    result.Depth = LinearizeDepth(Position.z, NearPlane, FarPlane);
+    result.Color = float4(obj_color * (ambient + diffuse + specular), 1.0f);
+    result.Depth = LinearizeDepth(input.Position.z, near_far.x, near_far.y);
     return result;
 }
