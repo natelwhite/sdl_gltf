@@ -45,7 +45,7 @@ private:
 	glm::vec2 m_dimensions; // (x, y) -> (width, height)
 	glm::vec3 m_vel { 0, 0, 0 }; // (x, y, z) in world space
 	const float m_speed { 0.5 };
-	glm::vec2 m_near_far { 20, 60 }; // (x, y) -> (near, far)
+	glm::vec2 m_near_far { 0.1, 1000 }; // (x, y) -> (near, far)
 	std::unordered_map<SDL_Scancode, bool> m_keys;
 };
 
