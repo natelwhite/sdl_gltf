@@ -19,8 +19,8 @@ float LinearizeDepth(float depth, float near, float far) {
 }
 
 Output main(Input input) {
-	float3 light_color = (1, 1, 1);
-	float3 light_pos = (0, 100, 50);
+	float3 light_color = float3(1, 1, 1);
+	float3 light_pos = float3(0, 100, 50);
 
 	float3 ambient = 0.1 * light_color;
 
