@@ -496,10 +496,37 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Error occured while loading gltf, resuming application");
 		return;
 	}
-	const fastgltf::Scene scene { asset->scenes.at(asset->defaultScene.value()) };
-	Uint32 v_total_buf_size, i_total_buf_size, norm_total_buf_size;
-	Uint32 v_total_count, i_total_count, norm_total_count;
 
+	auto sizeOfBuffer = [&](const fastgltf::Accessor &access) -> Uint32 {
+		SDL_assert(access.bufferViewIndex.has_value());
+		return static_cast<Uint32>(asset->bufferViews.at(access.bufferViewIndex.value()).byteLength);
+	};
+
+	auto processPrimitive = [&](const fastgltf::Primitive &prim) -> GeometryAllocationInfo {
+		const fastgltf::Attribute *pos { prim.findAttribute("POSITION") };
+		const fastgltf::Attribute *norm { prim.findAttribute("NORMAL") };
+		SDL_assert(prim.indicesAccessor.has_value());
+		SDL_assert(pos);
+		SDL_assert(norm);
+		fastgltf::Accessor &index_access { asset->accessors.at(prim.indicesAccessor.value()) };
+		fastgltf::Accessor &vertex_access { asset->accessors.at(pos->accessorIndex) };
+		fastgltf::Accessor &normal_access { asset->accessors.at(norm->accessorIndex) };
+		const GeometryAllocationInfo info {
+			{ sizeOfBuffer(index_access), static_cast<Uint32>(index_access.count), },
+			{ sizeOfBuffer(vertex_access), static_cast<Uint32>(vertex_access.count) },
+			{ sizeOfBuffer(normal_access), static_cast<Uint32>(normal_access.count) }
+		};
+		return info;
+	};
+
+	auto processMesh = [processPrimitive](const fastgltf::Mesh &mesh) -> GeometryAllocationInfo {
+		GeometryAllocationInfo info {};
+		for (const fastgltf::Primitive &prim : mesh.primitives) {
+			info += processPrimitive(prim);
+		}
+		return info;
+	};
+	GeometryAllocationInfo scene_buffer_info;
 	// traverse nodes
 	fastgltf::iterateSceneNodes(asset.get(), asset->defaultScene.value(), fastgltf::math::fmat4x4(), 
 								[&](fastgltf::Node &node, fastgltf::math::fmat4x4 TRS) {
@@ -513,42 +540,25 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Node transforms must be decomposed");
 			return;
 		}
-		Uint32 i_count_start { i_total_count };
+		const Uint32 index_start { scene_buffer_info.indices.count };
 		SDL_assert(node.meshIndex.has_value());
 		const fastgltf::Mesh &mesh { asset->meshes.at(node.meshIndex.value()) };
-		for (const fastgltf::Primitive &prim : mesh.primitives) {
-			const fastgltf::Attribute *pos { prim.findAttribute("POSITION") };
-			const fastgltf::Attribute *norm { prim.findAttribute("NORMAL") };
-			SDL_assert(pos);
-			SDL_assert(prim.indicesAccessor.has_value());
-			SDL_assert(norm);
-			fastgltf::Accessor &vertex_access { asset->accessors.at(pos->accessorIndex) };
-			fastgltf::Accessor &index_access { asset->accessors.at(prim.indicesAccessor.value()) };
-			fastgltf::Accessor &norm_access { asset->accessors.at(norm->accessorIndex) };
-			SDL_assert(vertex_access.bufferViewIndex.has_value());
-			SDL_assert(index_access.bufferViewIndex.has_value());
-			SDL_assert(norm_access.bufferViewIndex.has_value());
-			i_total_buf_size += asset->bufferViews.at(index_access.bufferViewIndex.value()).byteLength;
-			i_total_count += index_access.count;
-			v_total_buf_size += asset->bufferViews.at(vertex_access.bufferViewIndex.value()).byteLength;
-			v_total_count += vertex_access.count;
-			norm_total_buf_size += asset->bufferViews.at(norm_access.bufferViewIndex.value()).byteLength;
-			norm_total_count += norm_access.count;
-		}
-		m_objects.emplace_back(pos, scale, rot, i_total_count - i_count_start, i_count_start);
+		const GeometryAllocationInfo mesh_info { processMesh(mesh) };
+		scene_buffer_info += mesh_info;
+		m_objects.emplace_back(pos, scale, rot, mesh_info.indices.count, index_start);
 	});
 	// create buffers
 	SDL_GPUBufferCreateInfo i_buf_create {
 		.usage = SDL_GPU_BUFFERUSAGE_INDEX,
-		.size = i_total_buf_size,
+		.size = scene_buffer_info.indices.bytes,
 	};
 	SDL_GPUBufferCreateInfo v_buf_create {
 		.usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-		.size = v_total_buf_size,
+		.size = scene_buffer_info.verts.bytes,
 	};
 	SDL_GPUBufferCreateInfo norm_buf_create {
 		.usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-		.size = norm_total_buf_size
+		.size = scene_buffer_info.norms.bytes
 	};
 	// if there already is a buffer, release it
 	if (m_i_buf) { SDL_ReleaseGPUBuffer(m_gpu, m_i_buf); }
@@ -569,91 +579,87 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUBuffer failed:\n\t%s", SDL_GetError());
 	}
 
-	Uint32 i_buf_offset { }, v_buf_offset { }, norm_buf_offset { };
+	// returns allocation information for uploaded primitive
+	auto uploadPrimitive = [&](SDL_GPUCopyPass *copypass, const fastgltf::Primitive &prim, const GeometryAllocationInfo &offsets) -> GeometryAllocationInfo {
+		// get index info
+		const fastgltf::Accessor &i_access { 
+			asset->accessors.at( prim.indicesAccessor.value() )
+		};
+		// get vert info
+		const fastgltf::Accessor &v_access {
+			asset->accessors.at( prim.findAttribute("POSITION")->accessorIndex )
+		};
+		// get normals info
+		const fastgltf::Accessor &norm_access {
+			asset->accessors.at( prim.findAttribute("NORMAL")->accessorIndex )
+		};
+
+		const GeometryAllocationInfo prim_info {
+			{ sizeOfBuffer(i_access), static_cast<Uint32>(i_access.count), },
+			{ sizeOfBuffer(v_access), static_cast<Uint32>(v_access.count) },
+			{ sizeOfBuffer(norm_access), static_cast<Uint32>(norm_access.count) }
+		};
+		// create transfer buffer
+		SDL_GPUTransferBufferCreateInfo trans_buf_create {
+			.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+			.size = prim_info.indices.bytes + 
+					prim_info.verts.bytes + 
+					prim_info.norms.bytes,
+		};
+		SDL_GPUTransferBuffer *trans_buf = SDL_CreateGPUTransferBuffer(m_gpu, &trans_buf_create);
+		if (!trans_buf) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUTransferBuffer failed:\n\t%s", SDL_GetError());
+			return { };
+		}
+		Uint16 *i_data { static_cast<Uint16*>(SDL_MapGPUTransferBuffer(m_gpu, trans_buf, false)) };
+		fastgltf::copyFromAccessor<Uint16>(asset.get(), i_access, i_data);
+		glm::vec3 *v_data { reinterpret_cast<glm::vec3*>(i_data + prim_info.indices.count) };
+		fastgltf::copyFromAccessor<glm::vec3>(asset.get(), v_access, v_data);
+		glm::vec3 *norm_data { v_data + v_access.count };
+		fastgltf::copyFromAccessor<glm::vec3>(asset.get(), norm_access, norm_data);
+		SDL_UnmapGPUTransferBuffer(m_gpu, trans_buf);
+		// move data to gpu using copy pass
+		SDL_GPUTransferBufferLocation trans_buf_loc {
+			.transfer_buffer = trans_buf,
+			.offset = 0
+		};
+		SDL_GPUBufferRegion i_region {
+			.buffer = m_i_buf,
+			.offset = offsets.indices.bytes,
+			.size = prim_info.indices.bytes
+		};
+		SDL_GPUBufferRegion v_region {
+			.buffer = m_v_buf,
+			.offset = offsets.verts.bytes,
+			.size = prim_info.verts.bytes
+		};
+		SDL_GPUBufferRegion norm_region {
+			.buffer = m_norm_buf,
+			.offset = offsets.norms.bytes,
+			.size = prim_info.norms.bytes
+		};
+		SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &i_region, false);
+		trans_buf_loc.offset += prim_info.indices.bytes;
+		SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &v_region, false);
+		trans_buf_loc.offset += prim_info.verts.bytes;
+		SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &norm_region, false);
+		SDL_ReleaseGPUTransferBuffer(m_gpu, trans_buf);
+		return prim_info;
+	};
+
 	SDL_GPUCommandBuffer *cmdbuf { SDL_AcquireGPUCommandBuffer(m_gpu) };
+	GeometryAllocationInfo offsets { };
+	SDL_GPUCopyPass *copypass { SDL_BeginGPUCopyPass(cmdbuf) };
 	fastgltf::iterateSceneNodes(asset.get(), asset->defaultScene.value(), fastgltf::math::fmat4x4(), 
-								[&, cmdbuf](fastgltf::Node &node, fastgltf::math::fmat4x4 TRS) {
+								[&](fastgltf::Node &node, fastgltf::math::fmat4x4 TRS) {
 		const fastgltf::Mesh &mesh { asset->meshes.at(node.meshIndex.value()) };
 		// traverse primitives of this node's mesh
 		for (const fastgltf::Primitive &prim : mesh.primitives) {
-			// get index info
-			const fastgltf::Accessor &i_access { 
-				asset->accessors.at( prim.indicesAccessor.value() )
-			};
-			const fastgltf::BufferView &i_buffer_view {
-				asset->bufferViews.at( i_access.bufferViewIndex.value() )
-			};
-			const Uint32 i_buf_size { static_cast<Uint32>(i_buffer_view.byteLength) };
-			const fastgltf::Buffer &i_buffer { asset->buffers.at(i_buffer_view.bufferIndex) };
-			// get vert info
-			const fastgltf::Accessor &v_access {
-				asset->accessors.at( prim.findAttribute("POSITION")->accessorIndex )
-			};
-			const fastgltf::BufferView &v_buffer_view { 
-				asset->bufferViews.at( v_access.bufferViewIndex.value() )
-			};
-			const Uint32 v_buf_size { static_cast<Uint32>(v_buffer_view.byteLength) };
-			const fastgltf::Buffer &v_buffer { asset->buffers.at(v_buffer_view.bufferIndex) };
-			// get normals info
-			const fastgltf::Accessor &norm_access {
-				asset->accessors.at( prim.findAttribute("NORMAL")->accessorIndex )
-			};
-			const fastgltf::BufferView &norm_buffer_view {
-				asset->bufferViews.at( norm_access.bufferViewIndex.value() )
-			};
-			const Uint32 norm_buf_size { static_cast<Uint32>(norm_buffer_view.byteLength) };
-			const fastgltf::Buffer &norm_buffer {asset->buffers.at(norm_buffer_view.bufferIndex) };
-
-			// create transfer buffer
-			SDL_GPUTransferBufferCreateInfo trans_buf_create {
-				.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-				.size = i_buf_size + v_buf_size + norm_buf_size,
-			};
-			SDL_GPUTransferBuffer *trans_buf = SDL_CreateGPUTransferBuffer(m_gpu, &trans_buf_create);
-			if (!trans_buf) {
-				SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUTransferBuffer failed:\n\t%s", SDL_GetError());
-				return;
-			}
-			Uint16 *i_data { static_cast<Uint16*>(SDL_MapGPUTransferBuffer(m_gpu, trans_buf, false)) };
-			fastgltf::copyFromAccessor<Uint16>(asset.get(), i_access, i_data);
-			glm::vec3 *v_data { reinterpret_cast<glm::vec3*>(i_data + i_access.count) };
-			fastgltf::copyFromAccessor<glm::vec3>(asset.get(), v_access, v_data);
-			glm::vec3 *norm_data { v_data + v_access.count };
-			fastgltf::copyFromAccessor<glm::vec3>(asset.get(), norm_access, norm_data);
-			SDL_UnmapGPUTransferBuffer(m_gpu, trans_buf);
-			// move data to gpu using copy pass
-			SDL_GPUCopyPass *copypass { SDL_BeginGPUCopyPass(cmdbuf) };
-			SDL_GPUTransferBufferLocation trans_buf_loc {
-				.transfer_buffer = trans_buf,
-				.offset = 0
-			};
-			SDL_GPUBufferRegion i_region {
-				.buffer = m_i_buf,
-				.offset = i_buf_offset,
-				.size = i_buf_size
-			};
-			SDL_GPUBufferRegion v_region {
-				.buffer = m_v_buf,
-				.offset = v_buf_offset,
-				.size = v_buf_size
-			};
-			SDL_GPUBufferRegion norm_region {
-				.buffer = m_norm_buf,
-				.offset = norm_buf_offset,
-				.size = norm_buf_size
-			};
-			SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &i_region, false);
-			trans_buf_loc.offset += i_buf_size;
-			SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &v_region, false);
-			trans_buf_loc.offset += v_buf_size;
-			SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &norm_region, false);
-			SDL_EndGPUCopyPass(copypass);
-			SDL_ReleaseGPUTransferBuffer(m_gpu, trans_buf);
-			i_buf_offset += i_buf_size;
-			v_buf_offset += v_buf_size;
-			norm_buf_offset += norm_buf_size;
+			GeometryAllocationInfo uploaded { uploadPrimitive(copypass, prim, offsets) };
+			offsets += uploaded;
 		}
 	});
+	SDL_EndGPUCopyPass(copypass);
 	SDL_SubmitGPUCommandBuffer(cmdbuf);
 }
 
