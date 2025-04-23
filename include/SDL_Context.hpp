@@ -1,4 +1,6 @@
 #include <unordered_map>
+#include <array>
+
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_gpu.h"
 #include <SDL3/SDL.h>
@@ -10,6 +12,28 @@
 #include <glm/mat4x4.hpp>
 #include <glm/fwd.hpp>
 #include <glm/gtc/quaternion.hpp>
+
+template <>
+struct fastgltf::ElementTraits<glm::vec3>
+: fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, float> { };
+
+struct GPUBufferAllocationInfo {
+	Uint32 bytes { }, count { };
+	GPUBufferAllocationInfo& operator += (const GPUBufferAllocationInfo &other) {
+		bytes += other.bytes;
+		count += other.count;
+		return *this;
+	}
+};
+struct GeometryAllocationInfo {
+	GPUBufferAllocationInfo indices, verts, norms;
+	GeometryAllocationInfo& operator += (const GeometryAllocationInfo &other) {
+		indices += other.indices;
+		verts += other.verts;
+		norms += other.norms;
+		return *this;
+	}
+};
 
 struct Mesh {
 	glm::vec3 pos, scale;
@@ -52,10 +76,6 @@ private:
 	glm::vec2 m_near_far { 0.1, 1000 }; // (x, y) -> (near, far)
 	std::unordered_map<SDL_Scancode, bool> m_keys;
 };
-
-template <>
-struct fastgltf::ElementTraits<glm::vec3>
-: fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, float> { };
 
 class SDL_Context {
 public:
