@@ -109,5 +109,5 @@ private:
 
 	// helper functions
 	glm::mat4x4 createLookAt(const glm::vec3 &camera_pos, const glm::vec3 &camera_target, const glm::vec3 &camera_up) const;
-	SDL_GPUShader* loadShader(const std::filesystem::path &path);
+	SDL_GPUShader* loadShader(const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers);
 };

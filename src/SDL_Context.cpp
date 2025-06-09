@@ -11,7 +11,6 @@
 #include "SDL3/SDL_log.h"
 #include "fastgltf/tools.hpp"
 #include "glm/gtc/quaternion.hpp"
-#include <SDL3_shadercross/SDL_shadercross.h>
 
 // callback function for opening files
 void SDLCALL callback(void* userdata, const char* const* filelist, int filter) {
@@ -39,58 +38,76 @@ void SDLCALL callback(void* userdata, const char* const* filelist, int filter) {
 	}
 	ctx->loadGLTF(path);
 }
+
 // load a shader
-SDL_GPUShader* SDL_Context::loadShader(const std::filesystem::path &path) {
-	const std::string full_path { SDL_GetBasePath() + std::string("shaders/source/") + path.string() };
-	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Loading shader: %s", full_path.data());
-	if (!SDL_GetPathInfo(full_path.data(), nullptr)) {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "File does not exist\n\t%s", full_path.data());
-		return nullptr;
-	}
-	SDL_ShaderCross_ShaderStage stage;
-	if (path.string().contains("vert")) {
-		stage = SDL_SHADERCROSS_SHADERSTAGE_VERTEX;
-	} else if (path.string().contains("frag")) {
-		stage = SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT;
+SDL_GPUShader* SDL_Context::loadShader(const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers) {
+	// Auto-detect the shader stage from the file name for convenience
+	SDL_GPUShaderStage stage;
+	if (filename.contains(".vert")) {
+		stage = SDL_GPU_SHADERSTAGE_VERTEX;
+	} else if (filename.contains(".frag")) {
+		stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
 	} else {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not detect shader stage");
+		SDL_Log("Invalid shader stage!");
+		return NULL;
+	}
+
+	SDL_GPUShaderFormat valid_formats = SDL_GetGPUShaderFormats(m_gpu);
+	SDL_GPUShaderFormat format = SDL_GPU_SHADERFORMAT_INVALID;
+	std::string entrypoint;
+	std::string shader_bin;
+	std::string file_extension;
+
+	if (valid_formats & SDL_GPU_SHADERFORMAT_SPIRV) {
+		format = SDL_GPU_SHADERFORMAT_SPIRV;
+		shader_bin = "shaders/bin/SPIRV/";
+		file_extension = ".spv";
+		entrypoint = "main";
+	} else if (valid_formats & SDL_GPU_SHADERFORMAT_MSL) {
+		format = SDL_GPU_SHADERFORMAT_MSL;
+		shader_bin = "shaders/bin/MSL/";
+		file_extension = ".msl";
+		entrypoint = "main0";
+	} else if (valid_formats & SDL_GPU_SHADERFORMAT_DXIL) {
+		format = SDL_GPU_SHADERFORMAT_DXIL;
+		shader_bin = "shaders/bin/DXIL/";
+		file_extension = ".dxil";
+		entrypoint = "main";
+	} else {
+		SDL_Log("%s", "Unrecognized backend shader format!");
 		return nullptr;
 	}
-	size_t hlsl_size;
-	void *hlsl = SDL_LoadFile(full_path.data(), &hlsl_size);
-	SDL_ShaderCross_HLSL_Info info {
-		.source = static_cast<char*>(hlsl),
-		.entrypoint = "main",
-		.shader_stage = stage,
-		.enable_debug = true,
+
+	const std::string full_path { SDL_GetBasePath() + shader_bin + filename + file_extension };
+
+	size_t codeSize;
+	void* code = SDL_LoadFile(full_path.data(), &codeSize);
+	if (code == NULL)
+	{
+		SDL_Log("Failed to load shader from disk! %s", full_path.data());
+		return nullptr;
+	}
+
+	SDL_GPUShaderCreateInfo shaderInfo = {
+		.code_size = codeSize,
+		.code = static_cast<Uint8*>(code),
+		.entrypoint = entrypoint.data(),
+		.format = format,
+		.stage = stage,
+		.num_samplers = num_samplers,
+		.num_storage_textures = num_storage_textures,
+		.num_storage_buffers = num_storage_buffers,
+		.num_uniform_buffers = num_uniform_buffers,
 	};
-	size_t spirv_size;
-	void *spirv = SDL_ShaderCross_CompileSPIRVFromHLSL(&info, &spirv_size);
-	SDL_ShaderCross_GraphicsShaderMetadata metadata;
-	if (!SDL_ShaderCross_ReflectGraphicsSPIRV(static_cast<Uint8*>(spirv), spirv_size, &metadata)) {
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "SDL_ShaderCross_ReflectGraphicsSPIRV failed\n\t%s", SDL_GetError());
-		return nullptr;
+	SDL_GPUShader* shader = SDL_CreateGPUShader(m_gpu, &shaderInfo);
+	if (shader == NULL)
+	{
+		SDL_Log("Failed to create shader!");
+		SDL_free(code);
+		return NULL;
 	}
-	SDL_GPUShaderFormat platform_format { SDL_GetGPUShaderFormats(m_gpu) };
-	SDL_GPUShader *shader;
-	if (platform_format & SDL_GPU_SHADERFORMAT_SPIRV) {
-		SDL_ShaderCross_SPIRV_Info spirv_info {
-			.bytecode = static_cast<Uint8*>(spirv),
-			.bytecode_size = spirv_size,
-			.entrypoint = info.entrypoint,
-			.shader_stage = info.shader_stage,
-			.enable_debug = info.enable_debug,
-		};
-		shader = SDL_ShaderCross_CompileGraphicsShaderFromSPIRV(m_gpu, &spirv_info, &metadata);
-	} else {
-		SDL_free(spirv);
-		shader = SDL_ShaderCross_CompileGraphicsShaderFromHLSL(m_gpu, &info, &metadata);
-	}
-	if (!shader) {
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "SDL_ShaderCross_CompileGraphicsShaderFromHLSL failed\n\t%s", SDL_GetError());
-		return nullptr;
-	}
-	SDL_free(hlsl);
+
+	SDL_free(code);
 	return shader;
 }
 
@@ -115,19 +132,19 @@ SDL_AppResult SDL_Context::init() {
 	}
 	// create shaders
 	SDL_Log("Create shaders");
-	m_geo_v_shader = loadShader("PositionTransform.vert.hlsl");
+	m_geo_v_shader = loadShader("PositionTransform.vert", 0, 0, 0, 1);
 	if (!m_geo_v_shader) {
 		return SDL_APP_FAILURE;
 	}
-	m_geo_f_shader = loadShader("SolidColorDepth.frag.hlsl");
+	m_geo_f_shader = loadShader("SolidColorDepth.frag", 0, 0, 0, 1);
 	if (!m_geo_f_shader) {
 		return SDL_APP_FAILURE;
 	}
-	m_pp_v_shader = loadShader("Window.vert.hlsl");
+	m_pp_v_shader = loadShader("Window.vert", 0, 0, 0, 0);
 	if (!m_pp_v_shader) {
 		return SDL_APP_FAILURE;
 	}
-	m_pp_f_shader = loadShader("DepthOutline.frag.hlsl");
+	m_pp_f_shader = loadShader("DepthOutline.frag", 2, 0, 0, 1);
 	if (!m_pp_f_shader) {
 		return SDL_APP_FAILURE;
 	}
@@ -391,7 +408,7 @@ SDL_AppResult SDL_Context::iterate() {
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "SDL_WaitAndAcquireGPUSwapchainTexture failed\n\t%s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
-	float aspect_ratio { static_cast<float>(m_width) / static_cast<float>(m_height) };
+	// float aspect_ratio { static_cast<float>(m_width) / static_cast<float>(m_height) };
 	if (!swapchain) { return SDL_APP_FAILURE; }
 	const Camera &active { m_cams.at(m_active_cam_index) };
 	FragmentUniforms frag_uniforms { 
