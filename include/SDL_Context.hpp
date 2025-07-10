@@ -3,6 +3,7 @@
 
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_gpu.h"
+#include "fastgltf/types.hpp"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_init.h>
 

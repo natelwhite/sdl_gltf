@@ -522,6 +522,15 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 	auto processPrimitive = [&](const fastgltf::Primitive &prim) -> GeometryAllocationInfo {
 		const fastgltf::Attribute *pos { prim.findAttribute("POSITION") };
 		const fastgltf::Attribute *norm { prim.findAttribute("NORMAL") };
+		switch(prim.type) {
+		case fastgltf::PrimitiveType::Triangles:
+			SDL_Log("Triangle list detected");
+			break;
+		default:
+			SDL_Log("Primitive type not supported: %s", prim.type);
+			break;
+		}
+
 		SDL_assert(prim.indicesAccessor.has_value());
 		SDL_assert(pos);
 		SDL_assert(norm);
