@@ -2,7 +2,6 @@ set(SDL_TEST_LIBRARY OFF)
 set(BUILD_SHARED_LIBS ON)
 add_subdirectory(SDL)
 
-
 set(GLM_BUILD_TESTS OFF)
 add_subdirectory(glm)
 

@@ -574,33 +574,26 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 		m_objects.emplace_back(pos, scale, rot, mesh_info.indices.count, index_start);
 	});
 	// create buffers
-	SDL_GPUBufferCreateInfo i_buf_create {
-		.usage = SDL_GPU_BUFFERUSAGE_INDEX,
-		.size = scene_buffer_info.indices.bytes,
-	};
-	SDL_GPUBufferCreateInfo v_buf_create {
-		.usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-		.size = scene_buffer_info.verts.bytes,
-	};
-	SDL_GPUBufferCreateInfo norm_buf_create {
-		.usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-		.size = scene_buffer_info.norms.bytes
+	const SDL_GPUBufferCreateInfo attribute_buffers[3] {
+		{ SDL_GPU_BUFFERUSAGE_INDEX, scene_buffer_info.indices.bytes },
+		{ SDL_GPU_BUFFERUSAGE_VERTEX, scene_buffer_info.verts.bytes },
+		{ SDL_GPU_BUFFERUSAGE_VERTEX, scene_buffer_info.norms.bytes },
 	};
 	// if there already is a buffer, release it
 	if (m_i_buf) { SDL_ReleaseGPUBuffer(m_gpu, m_i_buf); }
-	m_i_buf = SDL_CreateGPUBuffer(m_gpu, &i_buf_create);
+	m_i_buf = SDL_CreateGPUBuffer(m_gpu, &attribute_buffers[0]);
 	if (!m_i_buf) {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUBuffer failed:\n\t%s", SDL_GetError());
 		return;
 	}
 	if (m_v_buf) { SDL_ReleaseGPUBuffer(m_gpu, m_v_buf); }
-	m_v_buf = SDL_CreateGPUBuffer(m_gpu, &v_buf_create);
+	m_v_buf = SDL_CreateGPUBuffer(m_gpu, &attribute_buffers[1]);
 	if (!m_v_buf) {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUBuffer failed:\n\t%s", SDL_GetError());
 		return;
 	}
 	if (m_norm_buf) { SDL_ReleaseGPUBuffer(m_gpu, m_norm_buf); }
-	m_norm_buf = SDL_CreateGPUBuffer(m_gpu, &norm_buf_create);
+	m_norm_buf = SDL_CreateGPUBuffer(m_gpu, &attribute_buffers[2]);
 	if (!m_norm_buf) {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUBuffer failed:\n\t%s", SDL_GetError());
 	}
@@ -649,26 +642,16 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 			.transfer_buffer = trans_buf,
 			.offset = 0
 		};
-		SDL_GPUBufferRegion i_region {
-			.buffer = m_i_buf,
-			.offset = offsets.indices.bytes,
-			.size = prim_info.indices.bytes
+		const SDL_GPUBufferRegion attribute_regions[3] {
+			{ m_i_buf, offsets.indices.bytes, prim_info.indices.bytes },
+			{ m_v_buf, offsets.verts.bytes, prim_info.verts.bytes },
+			{ m_norm_buf, offsets.norms.bytes, prim_info.norms.bytes }
 		};
-		SDL_GPUBufferRegion v_region {
-			.buffer = m_v_buf,
-			.offset = offsets.verts.bytes,
-			.size = prim_info.verts.bytes
-		};
-		SDL_GPUBufferRegion norm_region {
-			.buffer = m_norm_buf,
-			.offset = offsets.norms.bytes,
-			.size = prim_info.norms.bytes
-		};
-		SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &i_region, false);
+		SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &attribute_regions[0], false);
 		trans_buf_loc.offset += prim_info.indices.bytes;
-		SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &v_region, false);
+		SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &attribute_regions[1], false);
 		trans_buf_loc.offset += prim_info.verts.bytes;
-		SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &norm_region, false);
+		SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &attribute_regions[2], false);
 		SDL_ReleaseGPUTransferBuffer(m_gpu, trans_buf);
 		return prim_info;
 	};
