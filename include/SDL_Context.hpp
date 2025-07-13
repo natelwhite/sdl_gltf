@@ -93,7 +93,6 @@ private:
 	SDL_GPUShaderFormat m_supported_formats {
 		SDL_GPU_SHADERFORMAT_SPIRV |
 		SDL_GPU_SHADERFORMAT_DXIL |
-		SDL_GPU_SHADERFORMAT_DXBC |
 		SDL_GPU_SHADERFORMAT_METALLIB
 	};
 	SDL_GPUGraphicsPipeline *m_pp_pipeline, *m_geo_pipeline;
@@ -111,3 +110,4 @@ private:
 	glm::mat4x4 createLookAt(const glm::vec3 &camera_pos, const glm::vec3 &camera_target, const glm::vec3 &camera_up) const;
 	SDL_GPUShader* loadShader(const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers);
 };
+

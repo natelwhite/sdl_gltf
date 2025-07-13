@@ -13,7 +13,7 @@
 #include "glm/gtc/quaternion.hpp"
 
 // callback function for opening files
-void SDLCALL callback(void* userdata, const char* const* filelist, int filter) {
+void SDLCALL fileDialogue(void* userdata, const char* const* filelist, int filter) {
 	if (!filelist) {
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Error in file dialog: \n\t%s", SDL_GetError());
 		return;
@@ -48,7 +48,7 @@ SDL_GPUShader* SDL_Context::loadShader(const std::string &filename, const Uint32
 	} else if (filename.contains(".frag")) {
 		stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
 	} else {
-		SDL_Log("Invalid shader stage!");
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid shader stage!");
 		return NULL;
 	}
 
@@ -74,7 +74,7 @@ SDL_GPUShader* SDL_Context::loadShader(const std::string &filename, const Uint32
 		file_extension = ".dxil";
 		entrypoint = "main";
 	} else {
-		SDL_Log("%s", "Unrecognized backend shader format!");
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Backend shader format is not supported");
 		return nullptr;
 	}
 
@@ -477,7 +477,7 @@ SDL_AppResult SDL_Context::openGLTF() {
 		{ "GLB", "glb" },
 		{ "GLTF", "gltf" },
 	};
-	SDL_ShowOpenFileDialog(callback, this, m_window, filter.data(), filter.size(), (SDL_GetBasePath() + std::string("meshes")).data(), 1);
+	SDL_ShowOpenFileDialog(fileDialogue, this, m_window, filter.data(), filter.size(), (SDL_GetBasePath() + std::string("meshes")).data(), 1);
 	return SDL_APP_CONTINUE;
 }
 
@@ -523,12 +523,11 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 		const fastgltf::Attribute *pos { prim.findAttribute("POSITION") };
 		const fastgltf::Attribute *norm { prim.findAttribute("NORMAL") };
 		switch(prim.type) {
-		case fastgltf::PrimitiveType::Triangles:
-			SDL_Log("Triangle list detected");
-			break;
-		default:
-			SDL_Log("Primitive type not supported: %s", prim.type);
-			break;
+			case fastgltf::PrimitiveType::Triangles:
+				break;
+			default:
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Primitive types other than triangle lists are not supported");
+				break;
 		}
 
 		SDL_assert(prim.indicesAccessor.has_value());
