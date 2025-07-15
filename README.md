@@ -7,5 +7,5 @@
 - Then, while in `./sdl_gltf/`:
 	- Generate build system: `cmake -B build`
 	- Execute build system: `cmake --build build`
-- The DrawMachine executable should now be in ./sdl_gltf/build/.
+- The sdl_gltf executable should now be in ./sdl_gltf/build/.
 
