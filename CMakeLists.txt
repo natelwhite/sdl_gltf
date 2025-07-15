@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(sdl3_gltf)
+project(sdl_gltf)
 
 set(CMAKE_BUILD_TYPE DEBUG)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
