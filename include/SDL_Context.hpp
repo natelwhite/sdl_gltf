@@ -112,8 +112,6 @@ private:
 		glm::quat_cast(glm::lookAt(glm::vec3{0, 0, 0}, {1, 0, 0}, {0, 1, 0})),
 		{m_width, m_height}
 	};
-	// std::vector<Camera> m_cams;
-	// Uint32 m_active_cam_index { };
 
 	// helper functions
 	SDL_GPUShader* createShader(const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers);
