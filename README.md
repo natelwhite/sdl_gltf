@@ -1,11 +1,11 @@
-### SDL 3.2.0
-- SDL [https://github.com/libsdl-org/SDL/releases/tag/release-3.2.0](3.2.0) was just released last week! 
-- More libraries/frameworks may be added by using git submodules or by altering one or more of the CMakeLists.txt files. 
+# Necessary Installations
+- [SDL Wiki - Windows](https://wiki.libsdl.org/SDL3/README-windows)
+- [SDL Wiki - Linux](https://wiki.libsdl.org/SDL3/README-linux)
+# Build
+- First, clone the repo and it's submodules
+	- `git clone --recurse-submodules https://natelwhite/sdl_gltf.git`
+- Then, while in `./sdl_gltf/`:
+	- Generate build system: `cmake -B build`
+	- Execute build system: `cmake --build build`
+- The DrawMachine executable should now be in ./sdl_gltf/build/.
 
-### Getting Setup
-- Assuming you have git and cmake installed...
-```sh
-git clone --recurse-submodules https://github.com/natelwhite/sdl3_hello_world.git
-cmake -B build # Generate Build System
-cmake --build build # Execute Build System
-```
