@@ -298,12 +298,6 @@ SDL_AppResult SDL_Context::init() {
 		return SDL_APP_FAILURE;
 	}
 	loadGLTF(SDL_GetBasePath() + std::string("meshes/cubes.glb"));
-	const glm::vec3 pos {60, 60, 60};
-	const glm::mat4 rot_mat { glm::lookAt(pos, {0, 0, 0}, {0, 1, 0}) };
-	const glm::quat rot_quat { glm::quat_cast(rot_mat) };
-	const glm::vec2 dimensions { m_width, m_height };
-	Camera cam {pos, rot_quat, dimensions};
-	m_cams.push_back(cam);
 	return SDL_APP_CONTINUE;
 }
 
@@ -324,8 +318,7 @@ void SDL_Context::quit() {
 }
 
 SDL_AppResult SDL_Context::event(SDL_Event *e) {
-	Camera &active { m_cams.at(m_active_cam_index) };
-	active.event(e);
+	m_camera.event(e);
 	switch(e->type) {
 	case SDL_EVENT_WINDOW_RESIZED: {
 		m_width = e->window.data1;
@@ -377,9 +370,7 @@ SDL_AppResult SDL_Context::event(SDL_Event *e) {
 }
 
 SDL_AppResult SDL_Context::iterate() {
-	for (Camera &cam : m_cams) {
-		cam.iterate();
-	}
+	m_camera.iterate();
 	SDL_GPUColorTargetInfo color_target_info {
 		.texture = m_color,
 		.clear_color = {0, 0, 0, 0},
@@ -408,12 +399,10 @@ SDL_AppResult SDL_Context::iterate() {
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "SDL_WaitAndAcquireGPUSwapchainTexture failed\n\t%s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
-	// float aspect_ratio { static_cast<float>(m_width) / static_cast<float>(m_height) };
 	if (!swapchain) { return SDL_APP_FAILURE; }
-	const Camera &active { m_cams.at(m_active_cam_index) };
 	FragmentUniforms frag_uniforms { 
-		active.getNearFar(),
-		active.getPosition()
+		m_camera.getNearFar(),
+		m_camera.getPosition()
 	};
 	SDL_PushGPUFragmentUniformData(cmdbuf, 0, &frag_uniforms, sizeof(frag_uniforms));
 
@@ -439,13 +428,13 @@ SDL_AppResult SDL_Context::iterate() {
 	// sort objects so that
 	// farthest object is at start and
 	// closest object is at end
-	std::sort(m_objects.begin(), m_objects.end(), [active](const Mesh &a, const Mesh &b) -> bool {
-		const float dist_a { glm::distance(active.getPosition(), a.pos) };
-		const float dist_b { glm::distance(active.getPosition(), b.pos) };
+	std::sort(m_objects.begin(), m_objects.end(), [&](const Mesh &a, const Mesh &b) -> bool {
+		const float dist_a { glm::distance(m_camera.getPosition(), a.pos) };
+		const float dist_b { glm::distance(m_camera.getPosition(), b.pos) };
 		return dist_a ? dist_a > dist_b : dist_b;
 	});
 	VertexUniforms vert_uniforms;
-	vert_uniforms.proj_view = active.proj() * active.view();
+	vert_uniforms.proj_view = m_camera.proj() * m_camera.view();
 	for (const Mesh &mesh : m_objects) {
 		vert_uniforms.model = mesh.model_mat();
 		SDL_PushGPUVertexUniformData(cmdbuf, 0, &vert_uniforms, sizeof(vert_uniforms));
