@@ -2,6 +2,7 @@
 
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_gpu.h"
+#include "SDL3/SDL_video.h"
 #include "fastgltf/types.hpp"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_init.h>
@@ -88,13 +89,16 @@ public:
 	SDL_AppResult openGLTF();
 	void loadGLTF(const std::filesystem::path &path);
 private:
-	SDL_GPUDevice *m_gpu;
-	SDL_Window *m_window;
 	SDL_GPUShaderFormat m_supported_formats {
 		SDL_GPU_SHADERFORMAT_SPIRV |
 		SDL_GPU_SHADERFORMAT_DXIL |
 		SDL_GPU_SHADERFORMAT_METALLIB
 	};
+	SDL_WindowFlags m_window_flags {
+		SDL_WINDOW_RESIZABLE
+	};
+	SDL_GPUDevice *m_gpu;
+	SDL_Window *m_window;
 	SDL_GPUGraphicsPipeline *m_pp_pipeline, *m_geo_pipeline;
 	SDL_GPUBuffer *m_v_buf, *m_i_buf, *m_norm_buf;
 	SDL_GPUShader *m_geo_v_shader, *m_geo_f_shader, *m_pp_v_shader, *m_pp_f_shader;
@@ -107,7 +111,5 @@ private:
 	Uint32 m_active_cam_index { };
 
 	// helper functions
-	glm::mat4x4 createLookAt(const glm::vec3 &camera_pos, const glm::vec3 &camera_target, const glm::vec3 &camera_up) const;
-	SDL_GPUShader* loadShader(const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers);
+	SDL_GPUShader* createShader(const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers);
 };
-

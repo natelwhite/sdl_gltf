@@ -40,7 +40,7 @@ void SDLCALL fileDialogue(void* userdata, const char* const* filelist, int filte
 }
 
 // load a shader
-SDL_GPUShader* SDL_Context::loadShader(const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers) {
+SDL_GPUShader* SDL_Context::createShader(const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers) {
 	// Auto-detect the shader stage from the file name for convenience
 	SDL_GPUShaderStage stage;
 	if (filename.contains(".vert")) {
@@ -112,7 +112,7 @@ SDL_GPUShader* SDL_Context::loadShader(const std::string &filename, const Uint32
 }
 
 SDL_AppResult SDL_Context::init() {
-	m_window = SDL_CreateWindow("sdl_gltf", m_width, m_height, 0);
+	m_window = SDL_CreateWindow("sdl_gltf", m_width, m_height, m_window_flags);
 	if (!m_window) {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateWindow failed:\n\t%s", SDL_GetError());
 		return SDL_APP_FAILURE;
@@ -132,19 +132,19 @@ SDL_AppResult SDL_Context::init() {
 	}
 	// create shaders
 	SDL_Log("Create shaders");
-	m_geo_v_shader = loadShader("PositionTransform.vert", 0, 0, 0, 1);
+	m_geo_v_shader = createShader("PositionTransform.vert", 0, 0, 0, 1);
 	if (!m_geo_v_shader) {
 		return SDL_APP_FAILURE;
 	}
-	m_geo_f_shader = loadShader("SolidColorDepth.frag", 0, 0, 0, 1);
+	m_geo_f_shader = createShader("SolidColorDepth.frag", 0, 0, 0, 1);
 	if (!m_geo_f_shader) {
 		return SDL_APP_FAILURE;
 	}
-	m_pp_v_shader = loadShader("Window.vert", 0, 0, 0, 0);
+	m_pp_v_shader = createShader("Window.vert", 0, 0, 0, 0);
 	if (!m_pp_v_shader) {
 		return SDL_APP_FAILURE;
 	}
-	m_pp_f_shader = loadShader("DepthOutline.frag", 2, 0, 0, 1);
+	m_pp_f_shader = createShader("DepthOutline.frag", 2, 0, 0, 1);
 	if (!m_pp_f_shader) {
 		return SDL_APP_FAILURE;
 	}
