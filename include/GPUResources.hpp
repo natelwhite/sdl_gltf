@@ -1,5 +1,6 @@
 #include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_init.h>
 
 // define create & release function for 
 // objects that must be released
@@ -34,6 +35,7 @@ template<> struct GPUResourceTraits<SDL_GPUShader> {
 template<typename Type> class GPUResource {
 public:
 	GPUResource() { }
+	~GPUResource() { }
 	Type* create(SDL_GPUDevice* t_gpu, const GPUResourceTraits<Type>::info &info) {
 		gpu = t_gpu;
 		ptr = GPUResourceTraits<Type>::create(gpu, &info);
@@ -57,3 +59,29 @@ private:
 	Type* ptr;
 	SDL_GPUDevice *gpu;
 };
+
+class GPUMan {
+public:
+	GPUMan() {}
+	~GPUMan() {}
+	SDL_AppResult init(SDL_Window *window, const SDL_GPUShaderFormat &format_flags, const bool &debug_mode) {
+		m_gpu = SDL_CreateGPUDevice(m_supported_formats, true, NULL);
+		if (!m_gpu) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUDevice failed:\n\t%s", SDL_GetError());
+			return SDL_APP_FAILURE;
+		}
+		if (!SDL_ClaimWindowForGPUDevice(m_gpu, window)) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_ClaimWindowForGPUDevice failed:\n\t%s", SDL_GetError());
+			return SDL_APP_FAILURE;
+		}
+		return SDL_APP_CONTINUE;
+	}
+private:
+	SDL_GPUShaderFormat m_supported_formats {
+		SDL_GPU_SHADERFORMAT_SPIRV |
+		SDL_GPU_SHADERFORMAT_DXIL |
+		SDL_GPU_SHADERFORMAT_METALLIB
+	};
+	SDL_GPUDevice *m_gpu;
+};
+

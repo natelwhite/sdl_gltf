@@ -125,15 +125,14 @@ SDL_AppResult App::init() {
 		return SDL_APP_FAILURE;
 	}
 	// create shaders
-	SDL_Log("Create shaders");
-	createShader(&m_geo_v_shader, "PositionTransform.vert", 0, 0, 0, 1);
-	if (!m_geo_v_shader.get()) { return SDL_APP_FAILURE; }
-	createShader(&m_geo_f_shader, "SolidColorDepth.frag", 0, 0, 0, 1);
-	if (!m_geo_f_shader.get()) { return SDL_APP_FAILURE; }
-	createShader(&m_pp_v_shader, "Window.vert", 0, 0, 0, 0);
-	if (!m_pp_v_shader.get()) { return SDL_APP_FAILURE; }
-	createShader(&m_pp_f_shader, "DepthOutline.frag", 2, 0, 0, 1);
-	if (!m_pp_f_shader.get()) { return SDL_APP_FAILURE; }
+	if (!createShader(&m_geo_v_shader, "PositionTransform.vert", 0, 0, 0, 1))
+		return SDL_APP_FAILURE;
+	if (!createShader(&m_geo_f_shader, "SolidColorDepth.frag", 0, 0, 0, 1))
+		return SDL_APP_FAILURE;
+	if (!createShader(&m_pp_v_shader, "Window.vert", 0, 0, 0, 0))
+		return SDL_APP_FAILURE;
+	if (!createShader(&m_pp_f_shader, "DepthOutline.frag", 2, 0, 0, 1))
+		return SDL_APP_FAILURE;
 
 	// create post processing pipeline
 	SDL_GPUColorTargetDescription pp_color_target_description {
@@ -245,7 +244,7 @@ SDL_AppResult App::init() {
 		.num_levels = 1,
 		.sample_count = SDL_GPU_SAMPLECOUNT_1,
 	};
-	m_depth.create(m_gpu, depth_create);
+	if (!m_depth.create(m_gpu, depth_create)) { return SDL_APP_FAILURE; }
 	const SDL_GPUTextureCreateInfo color_create {
 		.type = SDL_GPU_TEXTURETYPE_2D,
 		.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
@@ -256,7 +255,7 @@ SDL_AppResult App::init() {
 		.num_levels = 1,
 		.sample_count = SDL_GPU_SAMPLECOUNT_1,
 	};
-	m_color.create(m_gpu, color_create);
+	if (!m_color.create(m_gpu, color_create)) { return SDL_APP_FAILURE; }
 
 	// create depth sampler
 	const SDL_GPUSamplerCreateInfo depth_sampler_create {
@@ -267,7 +266,7 @@ SDL_AppResult App::init() {
 		.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
 		.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
 	};
-	m_depth_sampler.create(m_gpu, depth_sampler_create);
+	if (!m_depth_sampler.create(m_gpu, depth_sampler_create)) { return SDL_APP_FAILURE; }
 	loadGLTF(SDL_GetBasePath() + std::string("meshes/cubes.glb"));
 	return SDL_APP_CONTINUE;
 }
@@ -527,11 +526,11 @@ void App::loadGLTF(const std::filesystem::path& path) {
 	};
 	// if there already is a buffer, release it
 	if (m_i_buf.get()) { m_i_buf.release(); }
-	m_i_buf.create(m_gpu, attribute_buffers[0]);
+	if (!m_i_buf.create(m_gpu, attribute_buffers[0])) { return; }
 	if (m_v_buf.get()) { m_v_buf.release(); }
-	m_v_buf.create(m_gpu, attribute_buffers[1]);
+	if (!m_v_buf.create(m_gpu, attribute_buffers[1])) { return; }
 	if (m_norm_buf.get()) { m_norm_buf.release(); }
-	m_norm_buf.create(m_gpu, attribute_buffers[2]);
+	if (!m_norm_buf.create(m_gpu, attribute_buffers[2])) { return; }
 
 	// returns allocation information for uploaded primitive
 	auto uploadPrimitive = [&](SDL_GPUCopyPass *copypass, const fastgltf::Primitive &prim, const GeometryAllocationInfo &offsets) -> GeometryAllocationInfo {

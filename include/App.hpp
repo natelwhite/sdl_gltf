@@ -19,6 +19,9 @@
 template <>
 struct fastgltf::ElementTraits<glm::vec3>
 : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, float> { };
+template <>
+struct fastgltf::ElementTraits<glm::vec2>
+: fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec2, float> { };
 
 struct GPUBufferAllocationInfo {
 	Uint32 bytes { }, count { };
@@ -94,7 +97,7 @@ private:
 	SDL_GPUShaderFormat m_supported_formats {
 		SDL_GPU_SHADERFORMAT_SPIRV |
 		SDL_GPU_SHADERFORMAT_DXIL |
-		SDL_GPU_SHADERFORMAT_METALLIB
+		SDL_GPU_SHADERFORMAT_MSL
 	};
 	SDL_WindowFlags m_window_flags {
 		SDL_WINDOW_RESIZABLE
@@ -103,7 +106,7 @@ private:
 	SDL_Window *m_window;
 	SDL_GPUGraphicsPipeline *m_pp_pipeline, *m_geo_pipeline;
 	GPUResource<SDL_GPUShader> m_geo_v_shader, m_geo_f_shader, m_pp_v_shader, m_pp_f_shader;
-	GPUResource<SDL_GPUBuffer> m_v_buf, m_i_buf, m_norm_buf;
+	GPUResource<SDL_GPUBuffer> m_i_buf, m_v_buf, m_norm_buf;
 	GPUResource<SDL_GPUSampler> m_depth_sampler;
 	GPUResource<SDL_GPUTexture> m_color, m_depth;
 
