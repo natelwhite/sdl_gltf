@@ -6,7 +6,7 @@
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/geometric.hpp>
 
-#include "SDL_Context.hpp"
+#include "App.hpp"
 #include "SDL3/SDL_gpu.h"
 #include "SDL3/SDL_log.h"
 #include "fastgltf/tools.hpp"
@@ -30,7 +30,7 @@ void SDLCALL fileDialogue(void* userdata, const char* const* filelist, int filte
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "userdata is null");
 		return;
 	} 
-	SDL_Context* ctx = static_cast<SDL_Context*>(userdata);
+	App* ctx = static_cast<App*>(userdata);
 	std::string file_ending = path.substr(path.rfind('/'), path.length() - path.rfind('/'));
 	if (!path.contains("glb")) {
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "file is not a GLTF file");
@@ -40,7 +40,7 @@ void SDLCALL fileDialogue(void* userdata, const char* const* filelist, int filte
 }
 
 // load a shader
-SDL_GPUShader* SDL_Context::createShader(const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers) {
+SDL_GPUShader* App::createShader(const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers) {
 	// Auto-detect the shader stage from the file name for convenience
 	SDL_GPUShaderStage stage;
 	if (filename.contains(".vert")) {
@@ -111,7 +111,7 @@ SDL_GPUShader* SDL_Context::createShader(const std::string &filename, const Uint
 	return shader;
 }
 
-SDL_AppResult SDL_Context::init() {
+SDL_AppResult App::init() {
 	m_window = SDL_CreateWindow("sdl_gltf", m_width, m_height, m_window_flags);
 	if (!m_window) {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateWindow failed:\n\t%s", SDL_GetError());
@@ -286,7 +286,7 @@ SDL_AppResult SDL_Context::init() {
 	return SDL_APP_CONTINUE;
 }
 
-void SDL_Context::quit() {
+void App::quit() {
 	m_color.release();
 	m_depth.release();
 	m_depth_sampler.release();
@@ -299,7 +299,7 @@ void SDL_Context::quit() {
 	SDL_DestroyWindow(m_window);
 }
 
-SDL_AppResult SDL_Context::event(SDL_Event *e) {
+SDL_AppResult App::event(SDL_Event *e) {
 	m_camera.event(e);
 	switch(e->type) {
 	case SDL_EVENT_WINDOW_RESIZED: {
@@ -343,7 +343,7 @@ SDL_AppResult SDL_Context::event(SDL_Event *e) {
 	return SDL_APP_CONTINUE;
 }
 
-SDL_AppResult SDL_Context::iterate() {
+SDL_AppResult App::iterate() {
 	m_camera.iterate();
 	SDL_GPUColorTargetInfo color_target_info {
 		.texture = m_color.get(),
@@ -433,7 +433,7 @@ SDL_AppResult SDL_Context::iterate() {
 	return SDL_APP_CONTINUE;
 }
 
-SDL_AppResult SDL_Context::openGLTF() {
+SDL_AppResult App::openGLTF() {
 	const std::vector<SDL_DialogFileFilter> filter = {
 		{ "GLB", "glb" },
 		{ "GLTF", "gltf" },
@@ -442,7 +442,7 @@ SDL_AppResult SDL_Context::openGLTF() {
 	return SDL_APP_CONTINUE;
 }
 
-void SDL_Context::loadGLTF(const std::filesystem::path& path) {
+void App::loadGLTF(const std::filesystem::path& path) {
 	m_objects.clear();
 	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Loading GLTF file: %s", path.c_str());
 	fastgltf::Parser parser;

@@ -127,10 +127,10 @@ private:
 	SDL_GPUDevice *gpu;
 };
 
-class SDL_Context {
+class App {
 public:
-	SDL_Context() { }
-	~SDL_Context() { }
+	App() { }
+	~App() { }
 	SDL_AppResult init();
 	void quit();
 	SDL_AppResult iterate();
