@@ -7,7 +7,9 @@
 #include <glm/geometric.hpp>
 
 #include "App.hpp"
+#include "SDL3/SDL_error.h"
 #include "SDL3/SDL_gpu.h"
+#include "SDL3/SDL_init.h"
 #include "SDL3/SDL_log.h"
 #include "fastgltf/tools.hpp"
 #include "glm/gtc/quaternion.hpp"
@@ -40,7 +42,7 @@ void SDLCALL fileDialogue(void* userdata, const char* const* filelist, int filte
 }
 
 // load a shader
-SDL_GPUShader* App::createShader(const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers) {
+void App::createShader(GPUResource<SDL_GPUShader> *shader, const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers) {
 	// Auto-detect the shader stage from the file name for convenience
 	SDL_GPUShaderStage stage;
 	if (filename.contains(".vert")) {
@@ -49,7 +51,7 @@ SDL_GPUShader* App::createShader(const std::string &filename, const Uint32 &num_
 		stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
 	} else {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid shader stage!");
-		return NULL;
+		return;
 	}
 
 	SDL_GPUShaderFormat valid_formats = SDL_GetGPUShaderFormats(m_gpu);
@@ -75,17 +77,16 @@ SDL_GPUShader* App::createShader(const std::string &filename, const Uint32 &num_
 		entrypoint = "main";
 	} else {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Backend shader format is not supported");
-		return nullptr;
+		return;
 	}
 
 	const std::string full_path { SDL_GetBasePath() + shader_bin + filename + file_extension };
 
 	size_t codeSize;
 	void* code = SDL_LoadFile(full_path.data(), &codeSize);
-	if (code == NULL)
-	{
+	if (code == NULL) {
 		SDL_Log("Failed to load shader from disk! %s", full_path.data());
-		return nullptr;
+		return;
 	}
 
 	SDL_GPUShaderCreateInfo shaderInfo = {
@@ -99,16 +100,8 @@ SDL_GPUShader* App::createShader(const std::string &filename, const Uint32 &num_
 		.num_storage_buffers = num_storage_buffers,
 		.num_uniform_buffers = num_uniform_buffers,
 	};
-	SDL_GPUShader* shader = SDL_CreateGPUShader(m_gpu, &shaderInfo);
-	if (shader == NULL)
-	{
-		SDL_Log("Failed to create shader!");
-		SDL_free(code);
-		return NULL;
-	}
-
+	shader->create(m_gpu, shaderInfo);
 	SDL_free(code);
-	return shader;
 }
 
 SDL_AppResult App::init() {
@@ -132,22 +125,14 @@ SDL_AppResult App::init() {
 	}
 	// create shaders
 	SDL_Log("Create shaders");
-	m_geo_v_shader = createShader("PositionTransform.vert", 0, 0, 0, 1);
-	if (!m_geo_v_shader) {
-		return SDL_APP_FAILURE;
-	}
-	m_geo_f_shader = createShader("SolidColorDepth.frag", 0, 0, 0, 1);
-	if (!m_geo_f_shader) {
-		return SDL_APP_FAILURE;
-	}
-	m_pp_v_shader = createShader("Window.vert", 0, 0, 0, 0);
-	if (!m_pp_v_shader) {
-		return SDL_APP_FAILURE;
-	}
-	m_pp_f_shader = createShader("DepthOutline.frag", 2, 0, 0, 1);
-	if (!m_pp_f_shader) {
-		return SDL_APP_FAILURE;
-	}
+	createShader(&m_geo_v_shader, "PositionTransform.vert", 0, 0, 0, 1);
+	if (!m_geo_v_shader.get()) { return SDL_APP_FAILURE; }
+	createShader(&m_geo_f_shader, "SolidColorDepth.frag", 0, 0, 0, 1);
+	if (!m_geo_f_shader.get()) { return SDL_APP_FAILURE; }
+	createShader(&m_pp_v_shader, "Window.vert", 0, 0, 0, 0);
+	if (!m_pp_v_shader.get()) { return SDL_APP_FAILURE; }
+	createShader(&m_pp_f_shader, "DepthOutline.frag", 2, 0, 0, 1);
+	if (!m_pp_f_shader.get()) { return SDL_APP_FAILURE; }
 
 	// create post processing pipeline
 	SDL_GPUColorTargetDescription pp_color_target_description {
@@ -163,8 +148,8 @@ SDL_AppResult App::init() {
 		}
 	};
 	SDL_GPUGraphicsPipelineCreateInfo pp_create {
-		.vertex_shader = m_pp_v_shader,
-		.fragment_shader = m_pp_f_shader,
+		.vertex_shader = m_pp_v_shader.get(),
+		.fragment_shader = m_pp_f_shader.get(),
 		.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
 		.target_info = {
 			.color_target_descriptions = &pp_color_target_description,
@@ -176,8 +161,8 @@ SDL_AppResult App::init() {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUGraphicsPipeline failed:\n\t%s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
-	SDL_ReleaseGPUShader(m_gpu, m_pp_v_shader);
-	SDL_ReleaseGPUShader(m_gpu, m_pp_f_shader);
+	m_pp_v_shader.release();
+	m_pp_f_shader.release();
 
 	// create geometry pipeline
 	std::vector<SDL_GPUVertexBufferDescription> vert_buf_descriptions { {
@@ -212,8 +197,8 @@ SDL_AppResult App::init() {
 		.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
 	};
 	SDL_GPUGraphicsPipelineCreateInfo geo_create {
-		.vertex_shader = m_geo_v_shader,
-		.fragment_shader = m_geo_f_shader,
+		.vertex_shader = m_geo_v_shader.get(),
+		.fragment_shader = m_geo_f_shader.get(),
 		.vertex_input_state = {
 			.vertex_buffer_descriptions = vert_buf_descriptions.data(),
 			.num_vertex_buffers = static_cast<Uint32>(vert_buf_descriptions.size()),
@@ -245,8 +230,8 @@ SDL_AppResult App::init() {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUGraphicsPipeline failed:\n\t%s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
-	SDL_ReleaseGPUShader(m_gpu, m_geo_v_shader);
-	SDL_ReleaseGPUShader(m_gpu, m_geo_f_shader);
+	m_geo_v_shader.release();
+	m_pp_f_shader.release();
 
 	// create textures
 	const SDL_GPUTextureCreateInfo depth_create {
@@ -413,7 +398,7 @@ SDL_AppResult App::iterate() {
 		SDL_DrawGPUIndexedPrimitives(render_pass, mesh.num_indices, 1, mesh.first_index, 0, 0);
 	}
 	SDL_EndGPURenderPass(render_pass);
-// render color & depth textures to window
+	// render color & depth textures to window
 	SDL_GPUColorTargetInfo swapchain_target_info {
 		.texture = swapchain,
 		.clear_color = {0.2f, 0.5f, 0.4f, 1.0f},
