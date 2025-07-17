@@ -149,7 +149,6 @@ SDL_AppResult SDL_Context::init() {
 		return SDL_APP_FAILURE;
 	}
 
-	SDL_Log("Create pipelines");
 	// create post processing pipeline
 	SDL_GPUColorTargetDescription pp_color_target_description {
 		.format = SDL_GetGPUSwapchainTextureFormat(m_gpu, m_window),
@@ -249,9 +248,8 @@ SDL_AppResult SDL_Context::init() {
 	SDL_ReleaseGPUShader(m_gpu, m_geo_v_shader);
 	SDL_ReleaseGPUShader(m_gpu, m_geo_f_shader);
 
-	SDL_Log("Create textures");
 	// create textures
-	SDL_GPUTextureCreateInfo depth_create {
+	const SDL_GPUTextureCreateInfo depth_create {
 		.type = SDL_GPU_TEXTURETYPE_2D,
 		.format = SDL_GPU_TEXTUREFORMAT_D16_UNORM,
 		.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
@@ -261,12 +259,8 @@ SDL_AppResult SDL_Context::init() {
 		.num_levels = 1,
 		.sample_count = SDL_GPU_SAMPLECOUNT_1,
 	};
-	m_depth = SDL_CreateGPUTexture(m_gpu, &depth_create);
-	if (!m_depth) {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUTexture failed:\n\t%s", SDL_GetError());
-		return SDL_APP_FAILURE;
-	}
-	SDL_GPUTextureCreateInfo color_create {
+	m_depth.create(m_gpu, depth_create);
+	const SDL_GPUTextureCreateInfo color_create {
 		.type = SDL_GPU_TEXTURETYPE_2D,
 		.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
 		.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
@@ -276,15 +270,10 @@ SDL_AppResult SDL_Context::init() {
 		.num_levels = 1,
 		.sample_count = SDL_GPU_SAMPLECOUNT_1,
 	};
-	m_color = SDL_CreateGPUTexture(m_gpu, &color_create);
-	if (!m_color) {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUTexture failed:\n\t%s", SDL_GetError());
-		return SDL_APP_FAILURE;
-	}
+	m_color.create(m_gpu, color_create);
 
-	SDL_Log("Create sampler");
 	// create depth sampler
-	SDL_GPUSamplerCreateInfo depth_sampler_create {
+	const SDL_GPUSamplerCreateInfo depth_sampler_create {
 		.min_filter = SDL_GPU_FILTER_NEAREST,
 		.mag_filter = SDL_GPU_FILTER_NEAREST,
 		.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
@@ -292,27 +281,20 @@ SDL_AppResult SDL_Context::init() {
 		.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
 		.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
 	};
-	m_depth_sampler = SDL_CreateGPUSampler(m_gpu, &depth_sampler_create);
-	if (!m_depth_sampler) {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUSampler failed:\n\t%s", SDL_GetError());
-		return SDL_APP_FAILURE;
-	}
+	m_depth_sampler.create(m_gpu, depth_sampler_create);
 	loadGLTF(SDL_GetBasePath() + std::string("meshes/cubes.glb"));
 	return SDL_APP_CONTINUE;
 }
 
 void SDL_Context::quit() {
-	SDL_ReleaseGPUTexture(m_gpu, m_color);
-	SDL_ReleaseGPUTexture(m_gpu, m_depth);
-	SDL_ReleaseGPUSampler(m_gpu, m_depth_sampler);
+	m_color.release();
+	m_depth.release();
+	m_depth_sampler.release();
 	SDL_ReleaseGPUGraphicsPipeline(m_gpu, m_pp_pipeline);
 	SDL_ReleaseGPUGraphicsPipeline(m_gpu, m_geo_pipeline);
-	if (m_v_buf) {
-		SDL_ReleaseGPUBuffer(m_gpu, m_v_buf);
-	}
-	if (m_i_buf) {
-		SDL_ReleaseGPUBuffer(m_gpu, m_i_buf);
-	}
+	m_i_buf.release();
+	m_v_buf.release();
+	m_norm_buf.release();
 	SDL_DestroyGPUDevice(m_gpu);
 	SDL_DestroyWindow(m_window);
 }
@@ -324,8 +306,8 @@ SDL_AppResult SDL_Context::event(SDL_Event *e) {
 		m_width = e->window.data1;
 		m_height = e->window.data2;
 		// resize textures
-		SDL_ReleaseGPUTexture(m_gpu, m_depth);
-		SDL_GPUTextureCreateInfo depth_create {
+		m_depth.release();
+		const SDL_GPUTextureCreateInfo depth_create {
 			.type = SDL_GPU_TEXTURETYPE_2D,
 			.format = SDL_GPU_TEXTUREFORMAT_D16_UNORM,
 			.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
@@ -335,13 +317,9 @@ SDL_AppResult SDL_Context::event(SDL_Event *e) {
 			.num_levels = 1,
 			.sample_count = SDL_GPU_SAMPLECOUNT_1,
 		};
-		m_depth = SDL_CreateGPUTexture(m_gpu, &depth_create);
-		if (!m_depth) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUTexture failed:\n\t%s", SDL_GetError());
-			return SDL_APP_FAILURE;
-		}
-		SDL_ReleaseGPUTexture(m_gpu, m_color);
-		SDL_GPUTextureCreateInfo color_create {
+		m_depth.create(m_gpu, depth_create);
+		m_color.release();
+		const SDL_GPUTextureCreateInfo color_create {
 			.type = SDL_GPU_TEXTURETYPE_2D,
 			.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
 			.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
@@ -351,11 +329,7 @@ SDL_AppResult SDL_Context::event(SDL_Event *e) {
 			.num_levels = 1,
 			.sample_count = SDL_GPU_SAMPLECOUNT_1,
 		};
-		m_color = SDL_CreateGPUTexture(m_gpu, &color_create);
-		if (!m_color) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUTexture failed:\n\t%s", SDL_GetError());
-			return SDL_APP_FAILURE;
-		}
+		m_color.create(m_gpu, color_create);
 		break;
 	}
 	case SDL_EVENT_KEY_DOWN:
@@ -372,13 +346,13 @@ SDL_AppResult SDL_Context::event(SDL_Event *e) {
 SDL_AppResult SDL_Context::iterate() {
 	m_camera.iterate();
 	SDL_GPUColorTargetInfo color_target_info {
-		.texture = m_color,
+		.texture = m_color.get(),
 		.clear_color = {0, 0, 0, 0},
 		.load_op = SDL_GPU_LOADOP_CLEAR,
 		.store_op = SDL_GPU_STOREOP_STORE
 	};
 	SDL_GPUDepthStencilTargetInfo depth_stencil_target_info {
-		.texture = m_depth,
+		.texture = m_depth.get(),
 		.clear_depth = 1,
 		.load_op = SDL_GPU_LOADOP_CLEAR,
 		.store_op = SDL_GPU_STOREOP_STORE,
@@ -408,21 +382,19 @@ SDL_AppResult SDL_Context::iterate() {
 
 	// render geometry to color & depth textures
 	SDL_GPURenderPass *render_pass { SDL_BeginGPURenderPass(cmdbuf, &color_target_info, 1, &depth_stencil_target_info) };
-	if (m_i_buf && m_v_buf && m_norm_buf) {
-		SDL_GPUBufferBinding i_buf_binding {
-			.buffer = m_i_buf,
+	SDL_GPUBufferBinding i_buf_binding {
+		.buffer = m_i_buf.get(),
+		.offset = 0
+	};
+	std::vector<SDL_GPUBufferBinding> vert_buf_bindings { {
+			.buffer = m_v_buf.get(),
 			.offset = 0
-		};
-		std::vector<SDL_GPUBufferBinding> vert_buf_bindings { {
-				.buffer = m_v_buf,
-				.offset = 0
-			}, {
-				.buffer = m_norm_buf,
-				.offset = 0
-		} };
-		SDL_BindGPUVertexBuffers(render_pass, 0, vert_buf_bindings.data(), vert_buf_bindings.size());
-		SDL_BindGPUIndexBuffer(render_pass, &i_buf_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
-	}
+		}, {
+			.buffer = m_norm_buf.get(),
+			.offset = 0
+	} };
+	SDL_BindGPUVertexBuffers(render_pass, 0, vert_buf_bindings.data(), vert_buf_bindings.size());
+	SDL_BindGPUIndexBuffer(render_pass, &i_buf_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
 	SDL_BindGPUGraphicsPipeline(render_pass, m_geo_pipeline);
 	// calculate perspective projection & view
 	// sort objects so that
@@ -451,8 +423,8 @@ SDL_AppResult SDL_Context::iterate() {
 	render_pass = SDL_BeginGPURenderPass(cmdbuf, &swapchain_target_info, 1, nullptr);
 	SDL_BindGPUGraphicsPipeline(render_pass, m_pp_pipeline);
 	SDL_GPUTextureSamplerBinding sampler_bindings[] {
-		{ .texture = m_color, .sampler = m_depth_sampler },
-		{ .texture = m_depth, .sampler = m_depth_sampler },
+		{ .texture = m_color.get(), .sampler = m_depth_sampler.get() },
+		{ .texture = m_depth.get(), .sampler = m_depth_sampler.get() },
 	};
 	SDL_BindGPUFragmentSamplers(render_pass, 0, sampler_bindings, 2);
 	SDL_DrawGPUPrimitives(render_pass, 6, 1, 0, 0);
@@ -568,23 +540,12 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 		{ SDL_GPU_BUFFERUSAGE_VERTEX, scene_buffer_info.norms.bytes },
 	};
 	// if there already is a buffer, release it
-	if (m_i_buf) { SDL_ReleaseGPUBuffer(m_gpu, m_i_buf); }
-	m_i_buf = SDL_CreateGPUBuffer(m_gpu, &attribute_buffers[0]);
-	if (!m_i_buf) {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUBuffer failed:\n\t%s", SDL_GetError());
-		return;
-	}
-	if (m_v_buf) { SDL_ReleaseGPUBuffer(m_gpu, m_v_buf); }
-	m_v_buf = SDL_CreateGPUBuffer(m_gpu, &attribute_buffers[1]);
-	if (!m_v_buf) {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUBuffer failed:\n\t%s", SDL_GetError());
-		return;
-	}
-	if (m_norm_buf) { SDL_ReleaseGPUBuffer(m_gpu, m_norm_buf); }
-	m_norm_buf = SDL_CreateGPUBuffer(m_gpu, &attribute_buffers[2]);
-	if (!m_norm_buf) {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUBuffer failed:\n\t%s", SDL_GetError());
-	}
+	if (m_i_buf.get()) { m_i_buf.release(); }
+	m_i_buf.create(m_gpu, attribute_buffers[0]);
+	if (m_v_buf.get()) { m_v_buf.release(); }
+	m_v_buf.create(m_gpu, attribute_buffers[1]);
+	if (m_norm_buf.get()) { m_norm_buf.release(); }
+	m_norm_buf.create(m_gpu, attribute_buffers[2]);
 
 	// returns allocation information for uploaded primitive
 	auto uploadPrimitive = [&](SDL_GPUCopyPass *copypass, const fastgltf::Primitive &prim, const GeometryAllocationInfo &offsets) -> GeometryAllocationInfo {
@@ -631,9 +592,9 @@ void SDL_Context::loadGLTF(const std::filesystem::path& path) {
 			.offset = 0
 		};
 		const SDL_GPUBufferRegion attribute_regions[3] {
-			{ m_i_buf, offsets.indices.bytes, prim_info.indices.bytes },
-			{ m_v_buf, offsets.verts.bytes, prim_info.verts.bytes },
-			{ m_norm_buf, offsets.norms.bytes, prim_info.norms.bytes }
+			{ m_i_buf.get(), offsets.indices.bytes, prim_info.indices.bytes },
+			{ m_v_buf.get(), offsets.verts.bytes, prim_info.verts.bytes },
+			{ m_norm_buf.get(), offsets.norms.bytes, prim_info.norms.bytes }
 		};
 		SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &attribute_regions[0], false);
 		trans_buf_loc.offset += prim_info.indices.bytes;

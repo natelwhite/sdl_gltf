@@ -1,7 +1,9 @@
 #include <unordered_map>
 
+#include "SDL3/SDL_error.h"
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_gpu.h"
+#include "SDL3/SDL_log.h"
 #include "SDL3/SDL_video.h"
 #include "fastgltf/types.hpp"
 #include <SDL3/SDL.h>
@@ -78,6 +80,53 @@ private:
 	std::unordered_map<SDL_Scancode, bool> m_keys;
 };
 
+// define create & release function for 
+// objects that must be released
+// using a SDL_GPUDevice handle
+template<typename> struct GPUResourceTraits { };
+template<> struct GPUResourceTraits<SDL_GPUTexture> {
+	using info = SDL_GPUTextureCreateInfo;
+	static constexpr auto resource_type = "SDL_GPUTexture";
+	static constexpr auto create = SDL_CreateGPUTexture;
+	static constexpr auto release = SDL_ReleaseGPUTexture;
+};
+template<> struct GPUResourceTraits<SDL_GPUSampler> {
+	using info = SDL_GPUSamplerCreateInfo;
+	static constexpr auto resource_type = "SDL_GPUSampler";
+	static constexpr auto create = SDL_CreateGPUSampler;
+	static constexpr auto release = SDL_ReleaseGPUSampler;
+};
+template<> struct GPUResourceTraits<SDL_GPUBuffer> {
+	using info = SDL_GPUBufferCreateInfo;
+	static constexpr auto resource_type = "SDL_GPUBuffer";
+	static constexpr auto create = SDL_CreateGPUBuffer;
+	static constexpr auto release = SDL_ReleaseGPUBuffer;
+};
+
+// A GPUResource will automatically get the create & release function from GPUResourceTraits
+template<typename Type> class GPUResource {
+public:
+	GPUResource() { }
+	void create(SDL_GPUDevice* t_gpu, const GPUResourceTraits<Type>::info &info) {
+		gpu = t_gpu;
+		ptr = GPUResourceTraits<Type>::create(gpu, &info);
+		if (!ptr) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Creating %s - Fail!\n\tERR: %s", GPUResourceTraits<Type>::resource_type, SDL_GetError());
+		} else {
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Creating %s - Success!", GPUResourceTraits<Type>::resource_type);
+		}
+	}
+	void release() {
+		GPUResourceTraits<Type>::release(gpu, ptr); 
+	}
+	Type* get() const { return ptr; }
+	GPUResource(const GPUResource &other) = delete;
+	GPUResource(const GPUResource &&other) = delete;
+private:
+	Type* ptr;
+	SDL_GPUDevice *gpu;
+};
+
 class SDL_Context {
 public:
 	SDL_Context() { }
@@ -100,10 +149,10 @@ private:
 	SDL_GPUDevice *m_gpu;
 	SDL_Window *m_window;
 	SDL_GPUGraphicsPipeline *m_pp_pipeline, *m_geo_pipeline;
-	SDL_GPUBuffer *m_v_buf, *m_i_buf, *m_norm_buf;
 	SDL_GPUShader *m_geo_v_shader, *m_geo_f_shader, *m_pp_v_shader, *m_pp_f_shader;
-	SDL_GPUSampler *m_depth_sampler;
-	SDL_GPUTexture *m_depth, *m_color;
+	GPUResource<SDL_GPUBuffer> m_v_buf, m_i_buf, m_norm_buf;
+	GPUResource<SDL_GPUSampler> m_depth_sampler;
+	GPUResource<SDL_GPUTexture> m_color, m_depth;
 
 	Uint32 m_width { 1200 }, m_height { 900 };
 	std::vector<Mesh> m_objects;
