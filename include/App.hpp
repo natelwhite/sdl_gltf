@@ -116,7 +116,6 @@ private:
 	};
 
 	// helper functions
-	// check shader.get() after calling createShader
-	// to verify if an SDL_GPUShader* was successfully created
-	void createShader(GPUResource<SDL_GPUShader> *shader, const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers);
+	// check result for nullptr
+	SDL_GPUShader* createShader(GPUResource<SDL_GPUShader> *shader, const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers);
 };

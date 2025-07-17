@@ -42,7 +42,7 @@ void SDLCALL fileDialogue(void* userdata, const char* const* filelist, int filte
 }
 
 // load a shader
-void App::createShader(GPUResource<SDL_GPUShader> *shader, const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers) {
+SDL_GPUShader* App::createShader(GPUResource<SDL_GPUShader> *shader, const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers) {
 	// Auto-detect the shader stage from the file name for convenience
 	SDL_GPUShaderStage stage;
 	if (filename.contains(".vert")) {
@@ -51,7 +51,7 @@ void App::createShader(GPUResource<SDL_GPUShader> *shader, const std::string &fi
 		stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
 	} else {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid shader stage!");
-		return;
+		return nullptr;
 	}
 
 	SDL_GPUShaderFormat valid_formats = SDL_GetGPUShaderFormats(m_gpu);
@@ -77,7 +77,7 @@ void App::createShader(GPUResource<SDL_GPUShader> *shader, const std::string &fi
 		entrypoint = "main";
 	} else {
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Backend shader format is not supported");
-		return;
+		return nullptr;
 	}
 
 	const std::string full_path { SDL_GetBasePath() + shader_bin + filename + file_extension };
@@ -86,7 +86,7 @@ void App::createShader(GPUResource<SDL_GPUShader> *shader, const std::string &fi
 	void* code = SDL_LoadFile(full_path.data(), &codeSize);
 	if (code == NULL) {
 		SDL_Log("Failed to load shader from disk! %s", full_path.data());
-		return;
+		return nullptr;
 	}
 
 	SDL_GPUShaderCreateInfo shaderInfo = {
@@ -102,6 +102,7 @@ void App::createShader(GPUResource<SDL_GPUShader> *shader, const std::string &fi
 	};
 	shader->create(m_gpu, shaderInfo);
 	SDL_free(code);
+	return shader->get();
 }
 
 SDL_AppResult App::init() {
