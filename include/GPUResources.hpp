@@ -36,7 +36,9 @@ template<typename Type> class GPUResource {
 public:
 	GPUResource() { }
 	~GPUResource() { }
-	Type* create(SDL_GPUDevice* t_gpu, const GPUResourceTraits<Type>::info &info) {
+	GPUResourceTraits<Type>::info info;
+	// creates a gpu resource using the current value of resource.info
+	Type* create(SDL_GPUDevice* t_gpu) {
 		gpu = t_gpu;
 		ptr = GPUResourceTraits<Type>::create(gpu, &info);
 		if (!ptr) {
@@ -59,29 +61,3 @@ private:
 	Type* ptr;
 	SDL_GPUDevice *gpu;
 };
-
-class GPUMan {
-public:
-	GPUMan() {}
-	~GPUMan() {}
-	SDL_AppResult init(SDL_Window *window, const SDL_GPUShaderFormat &format_flags, const bool &debug_mode) {
-		m_gpu = SDL_CreateGPUDevice(m_supported_formats, true, NULL);
-		if (!m_gpu) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUDevice failed:\n\t%s", SDL_GetError());
-			return SDL_APP_FAILURE;
-		}
-		if (!SDL_ClaimWindowForGPUDevice(m_gpu, window)) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_ClaimWindowForGPUDevice failed:\n\t%s", SDL_GetError());
-			return SDL_APP_FAILURE;
-		}
-		return SDL_APP_CONTINUE;
-	}
-private:
-	SDL_GPUShaderFormat m_supported_formats {
-		SDL_GPU_SHADERFORMAT_SPIRV |
-		SDL_GPU_SHADERFORMAT_DXIL |
-		SDL_GPU_SHADERFORMAT_METALLIB
-	};
-	SDL_GPUDevice *m_gpu;
-};
-

@@ -89,7 +89,7 @@ SDL_GPUShader* App::createShader(GPUResource<SDL_GPUShader> *shader, const std::
 		return nullptr;
 	}
 
-	SDL_GPUShaderCreateInfo shaderInfo = {
+	shader->info = {
 		.code_size = codeSize,
 		.code = static_cast<Uint8*>(code),
 		.entrypoint = entrypoint.data(),
@@ -100,7 +100,7 @@ SDL_GPUShader* App::createShader(GPUResource<SDL_GPUShader> *shader, const std::
 		.num_storage_buffers = num_storage_buffers,
 		.num_uniform_buffers = num_uniform_buffers,
 	};
-	shader->create(m_gpu, shaderInfo);
+	shader->create(m_gpu);
 	SDL_free(code);
 	return shader->get();
 }
@@ -234,7 +234,7 @@ SDL_AppResult App::init() {
 	m_pp_f_shader.release();
 
 	// create textures
-	const SDL_GPUTextureCreateInfo depth_create {
+	m_depth.info = {
 		.type = SDL_GPU_TEXTURETYPE_2D,
 		.format = SDL_GPU_TEXTUREFORMAT_D16_UNORM,
 		.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
@@ -244,8 +244,8 @@ SDL_AppResult App::init() {
 		.num_levels = 1,
 		.sample_count = SDL_GPU_SAMPLECOUNT_1,
 	};
-	if (!m_depth.create(m_gpu, depth_create)) { return SDL_APP_FAILURE; }
-	const SDL_GPUTextureCreateInfo color_create {
+	if (!m_depth.create(m_gpu)) { return SDL_APP_FAILURE; }
+	m_color.info = {
 		.type = SDL_GPU_TEXTURETYPE_2D,
 		.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
 		.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
@@ -255,10 +255,10 @@ SDL_AppResult App::init() {
 		.num_levels = 1,
 		.sample_count = SDL_GPU_SAMPLECOUNT_1,
 	};
-	if (!m_color.create(m_gpu, color_create)) { return SDL_APP_FAILURE; }
+	if (!m_color.create(m_gpu)) { return SDL_APP_FAILURE; }
 
 	// create depth sampler
-	const SDL_GPUSamplerCreateInfo depth_sampler_create {
+	m_depth_sampler.info = {
 		.min_filter = SDL_GPU_FILTER_NEAREST,
 		.mag_filter = SDL_GPU_FILTER_NEAREST,
 		.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
@@ -266,7 +266,7 @@ SDL_AppResult App::init() {
 		.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
 		.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
 	};
-	if (!m_depth_sampler.create(m_gpu, depth_sampler_create)) { return SDL_APP_FAILURE; }
+	if (!m_depth_sampler.create(m_gpu)) { return SDL_APP_FAILURE; }
 	loadGLTF(SDL_GetBasePath() + std::string("meshes/cubes.glb"));
 	return SDL_APP_CONTINUE;
 }
@@ -292,29 +292,13 @@ SDL_AppResult App::event(SDL_Event *e) {
 		m_height = e->window.data2;
 		// resize textures
 		m_depth.release();
-		const SDL_GPUTextureCreateInfo depth_create {
-			.type = SDL_GPU_TEXTURETYPE_2D,
-			.format = SDL_GPU_TEXTUREFORMAT_D16_UNORM,
-			.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
-			.width = m_width,
-			.height = m_height,
-			.layer_count_or_depth = 1,
-			.num_levels = 1,
-			.sample_count = SDL_GPU_SAMPLECOUNT_1,
-		};
-		m_depth.create(m_gpu, depth_create);
+		m_depth.info.width = m_width;
+		m_depth.info.height = m_height;
+		m_depth.create(m_gpu);
 		m_color.release();
-		const SDL_GPUTextureCreateInfo color_create {
-			.type = SDL_GPU_TEXTURETYPE_2D,
-			.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
-			.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
-			.width = m_width,
-			.height = m_height,
-			.layer_count_or_depth = 1,
-			.num_levels = 1,
-			.sample_count = SDL_GPU_SAMPLECOUNT_1,
-		};
-		m_color.create(m_gpu, color_create);
+		m_color.info.width = m_width;
+		m_color.info.height = m_height;
+		m_color.create(m_gpu);
 		break;
 	}
 	case SDL_EVENT_KEY_DOWN:
@@ -519,18 +503,16 @@ void App::loadGLTF(const std::filesystem::path& path) {
 		m_objects.emplace_back(pos, scale, rot, mesh_info.indices.count, index_start);
 	});
 	// create buffers
-	const SDL_GPUBufferCreateInfo attribute_buffers[3] {
-		{ SDL_GPU_BUFFERUSAGE_INDEX, scene_buffer_info.indices.bytes },
-		{ SDL_GPU_BUFFERUSAGE_VERTEX, scene_buffer_info.verts.bytes },
-		{ SDL_GPU_BUFFERUSAGE_VERTEX, scene_buffer_info.norms.bytes },
-	};
+	m_i_buf.info = { SDL_GPU_BUFFERUSAGE_INDEX, scene_buffer_info.indices.bytes };
+	m_v_buf.info = { SDL_GPU_BUFFERUSAGE_VERTEX, scene_buffer_info.verts.bytes };
+	m_norm_buf.info = { SDL_GPU_BUFFERUSAGE_VERTEX, scene_buffer_info.norms.bytes };
 	// if there already is a buffer, release it
 	if (m_i_buf.get()) { m_i_buf.release(); }
-	if (!m_i_buf.create(m_gpu, attribute_buffers[0])) { return; }
+	if (!m_i_buf.create(m_gpu)) { return; }
 	if (m_v_buf.get()) { m_v_buf.release(); }
-	if (!m_v_buf.create(m_gpu, attribute_buffers[1])) { return; }
+	if (!m_v_buf.create(m_gpu)) { return; }
 	if (m_norm_buf.get()) { m_norm_buf.release(); }
-	if (!m_norm_buf.create(m_gpu, attribute_buffers[2])) { return; }
+	if (!m_norm_buf.create(m_gpu)) { return; }
 
 	// returns allocation information for uploaded primitive
 	auto uploadPrimitive = [&](SDL_GPUCopyPass *copypass, const fastgltf::Primitive &prim, const GeometryAllocationInfo &offsets) -> GeometryAllocationInfo {
