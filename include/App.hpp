@@ -104,7 +104,7 @@ private:
 	};
 	SDL_GPUDevice *m_gpu;
 	SDL_Window *m_window;
-	SDL_GPUGraphicsPipeline *m_pp_pipeline, *m_geo_pipeline;
+	GPUResource<SDL_GPUGraphicsPipeline> m_pp_pipeline, m_geo_pipeline;
 	GPUResource<SDL_GPUShader> m_geo_v_shader, m_geo_f_shader, m_pp_v_shader, m_pp_f_shader;
 	GPUResource<SDL_GPUBuffer> m_i_buf, m_v_buf, m_norm_buf;
 	GPUResource<SDL_GPUSampler> m_depth_sampler;

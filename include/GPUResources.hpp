@@ -30,12 +30,20 @@ template<> struct GPUResourceTraits<SDL_GPUShader> {
 	static constexpr auto create = SDL_CreateGPUShader;
 	static constexpr auto release = SDL_ReleaseGPUShader;
 };
+template<> struct GPUResourceTraits<SDL_GPUGraphicsPipeline> {
+	using info = SDL_GPUGraphicsPipelineCreateInfo;
+	static constexpr auto resource_type = "Graphics Pipeline";
+	static constexpr auto create = SDL_CreateGPUGraphicsPipeline;
+	static constexpr auto release = SDL_ReleaseGPUGraphicsPipeline;
+};
 
 // A GPUResource will automatically get the create & release function from GPUResourceTraits
 template<typename Type> class GPUResource {
 public:
 	GPUResource() { }
 	~GPUResource() { }
+	// All pointers stored inside resource.info must be valid
+	// when resource.create is called
 	GPUResourceTraits<Type>::info info;
 	// creates a gpu resource using the current value of resource.info
 	Type* create(SDL_GPUDevice* t_gpu) {

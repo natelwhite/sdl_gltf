@@ -147,7 +147,7 @@ SDL_AppResult App::init() {
 			.enable_blend = true,
 		}
 	};
-	SDL_GPUGraphicsPipelineCreateInfo pp_create {
+	m_pp_pipeline.info = {
 		.vertex_shader = m_pp_v_shader.get(),
 		.fragment_shader = m_pp_f_shader.get(),
 		.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
@@ -156,16 +156,12 @@ SDL_AppResult App::init() {
 			.num_color_targets = 1,
 		}
 	};
-	m_pp_pipeline = SDL_CreateGPUGraphicsPipeline(m_gpu, &pp_create);
-	if (!m_pp_pipeline) {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUGraphicsPipeline failed:\n\t%s", SDL_GetError());
-		return SDL_APP_FAILURE;
-	}
+	m_pp_pipeline.create(m_gpu);
 	m_pp_v_shader.release();
 	m_pp_f_shader.release();
 
 	// create geometry pipeline
-	std::vector<SDL_GPUVertexBufferDescription> vert_buf_descriptions { {
+	SDL_GPUVertexBufferDescription vert_buf_descriptions[2] { {
 			.slot = 0,
 			.pitch = sizeof(glm::vec3),
 			.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
@@ -177,7 +173,7 @@ SDL_AppResult App::init() {
 			.instance_step_rate = 0,
 		}
 	};
-	std::vector<SDL_GPUVertexAttribute> vert_attribs { {
+	SDL_GPUVertexAttribute vert_attribs[3] { {
 			.location = 0,
 			.buffer_slot = 0,
 			.format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
@@ -196,14 +192,14 @@ SDL_AppResult App::init() {
 	SDL_GPUColorTargetDescription geo_color_target_description {
 		.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
 	};
-	SDL_GPUGraphicsPipelineCreateInfo geo_create {
+	m_geo_pipeline.info = {
 		.vertex_shader = m_geo_v_shader.get(),
 		.fragment_shader = m_geo_f_shader.get(),
 		.vertex_input_state = {
-			.vertex_buffer_descriptions = vert_buf_descriptions.data(),
-			.num_vertex_buffers = static_cast<Uint32>(vert_buf_descriptions.size()),
-			.vertex_attributes = vert_attribs.data(),
-			.num_vertex_attributes = static_cast<Uint32>(vert_attribs.size()),
+			.vertex_buffer_descriptions = vert_buf_descriptions,
+			.num_vertex_buffers = SDL_arraysize(vert_buf_descriptions),
+			.vertex_attributes = vert_attribs,
+			.num_vertex_attributes = SDL_arraysize(vert_attribs),
 		},
 		.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
 		.rasterizer_state = {
@@ -225,11 +221,7 @@ SDL_AppResult App::init() {
 			.has_depth_stencil_target = true,
 		},
 	};
-	m_geo_pipeline = SDL_CreateGPUGraphicsPipeline(m_gpu, &geo_create);
-	if (!m_geo_pipeline) {
-		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUGraphicsPipeline failed:\n\t%s", SDL_GetError());
-		return SDL_APP_FAILURE;
-	}
+	m_geo_pipeline.create(m_gpu);
 	m_geo_v_shader.release();
 	m_pp_f_shader.release();
 
@@ -275,8 +267,8 @@ void App::quit() {
 	m_color.release();
 	m_depth.release();
 	m_depth_sampler.release();
-	SDL_ReleaseGPUGraphicsPipeline(m_gpu, m_pp_pipeline);
-	SDL_ReleaseGPUGraphicsPipeline(m_gpu, m_geo_pipeline);
+	m_pp_pipeline.release();
+	m_geo_pipeline.release();
 	m_i_buf.release();
 	m_v_buf.release();
 	m_norm_buf.release();
@@ -364,7 +356,7 @@ SDL_AppResult App::iterate() {
 	} };
 	SDL_BindGPUVertexBuffers(render_pass, 0, vert_buf_bindings.data(), vert_buf_bindings.size());
 	SDL_BindGPUIndexBuffer(render_pass, &i_buf_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
-	SDL_BindGPUGraphicsPipeline(render_pass, m_geo_pipeline);
+	SDL_BindGPUGraphicsPipeline(render_pass, m_geo_pipeline.get());
 	// calculate perspective projection & view
 	// sort objects so that
 	// farthest object is at start and
@@ -390,7 +382,7 @@ SDL_AppResult App::iterate() {
 		.store_op = SDL_GPU_STOREOP_STORE
 	};
 	render_pass = SDL_BeginGPURenderPass(cmdbuf, &swapchain_target_info, 1, nullptr);
-	SDL_BindGPUGraphicsPipeline(render_pass, m_pp_pipeline);
+	SDL_BindGPUGraphicsPipeline(render_pass, m_pp_pipeline.get());
 	SDL_GPUTextureSamplerBinding sampler_bindings[] {
 		{ .texture = m_color.get(), .sampler = m_depth_sampler.get() },
 		{ .texture = m_depth.get(), .sampler = m_depth_sampler.get() },
