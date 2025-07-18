@@ -1,18 +1,6 @@
-#include <vector>
 #include <fastgltf/core.hpp>
-#include <fastgltf/types.hpp>
-#include <glm/ext/matrix_transform.hpp>
-#include <glm/ext/matrix_clip_space.hpp>
-#include <glm/ext/matrix_float4x4.hpp>
-#include <glm/geometric.hpp>
 
 #include "App.hpp"
-#include "SDL3/SDL_error.h"
-#include "SDL3/SDL_gpu.h"
-#include "SDL3/SDL_init.h"
-#include "SDL3/SDL_log.h"
-#include "fastgltf/tools.hpp"
-#include "glm/gtc/quaternion.hpp"
 
 // callback function for opening files
 void SDLCALL fileDialogue(void* userdata, const char* const* filelist, int filter) {
@@ -347,14 +335,14 @@ SDL_AppResult App::iterate() {
 		.buffer = m_i_buf.get(),
 		.offset = 0
 	};
-	std::vector<SDL_GPUBufferBinding> vert_buf_bindings { {
+	SDL_GPUBufferBinding vert_buf_bindings[2] { {
 			.buffer = m_v_buf.get(),
 			.offset = 0
 		}, {
 			.buffer = m_norm_buf.get(),
 			.offset = 0
 	} };
-	SDL_BindGPUVertexBuffers(render_pass, 0, vert_buf_bindings.data(), vert_buf_bindings.size());
+	SDL_BindGPUVertexBuffers(render_pass, 0, vert_buf_bindings, SDL_arraysize(vert_buf_bindings));
 	SDL_BindGPUIndexBuffer(render_pass, &i_buf_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
 	SDL_BindGPUGraphicsPipeline(render_pass, m_geo_pipeline.get());
 	// calculate perspective projection & view
@@ -395,11 +383,11 @@ SDL_AppResult App::iterate() {
 }
 
 SDL_AppResult App::openGLTF() {
-	const std::vector<SDL_DialogFileFilter> filter = {
+	const SDL_DialogFileFilter filter[2] = {
 		{ "GLB", "glb" },
 		{ "GLTF", "gltf" },
 	};
-	SDL_ShowOpenFileDialog(fileDialogue, this, m_window, filter.data(), filter.size(), (SDL_GetBasePath() + std::string("meshes")).data(), 1);
+	SDL_ShowOpenFileDialog(fileDialogue, this, m_window, filter, SDL_arraysize(filter), (SDL_GetBasePath() + std::string("meshes")).data(), 1);
 	return SDL_APP_CONTINUE;
 }
 
