@@ -20,9 +20,6 @@
 template <>
 struct fastgltf::ElementTraits<glm::vec3>
 : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, float> { };
-template <>
-struct fastgltf::ElementTraits<glm::vec2>
-: fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec2, float> { };
 
 struct GPUBufferAllocationInfo {
 	Uint32 bytes { }, count { };

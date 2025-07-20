@@ -161,7 +161,7 @@ SDL_AppResult App::init() {
 			.instance_step_rate = 0,
 		}
 	};
-	SDL_GPUVertexAttribute vert_attribs[3] { {
+	SDL_GPUVertexAttribute vert_attribs[2] { {
 			.location = 0,
 			.buffer_slot = 0,
 			.format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
@@ -171,11 +171,6 @@ SDL_AppResult App::init() {
 			.buffer_slot = 1,
 			.format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
 			.offset = 0,
-		}, {
-			.location = 2,
-			.buffer_slot = 1,
-			.format = SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM,
-			.offset = 0
 	}};
 	SDL_GPUColorTargetDescription geo_color_target_description {
 		.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
@@ -430,8 +425,6 @@ void App::loadGLTF(const std::filesystem::path& path) {
 	};
 
 	auto processPrimitive = [&](const fastgltf::Primitive &prim) -> GeometryAllocationInfo {
-		const fastgltf::Attribute *pos { prim.findAttribute("POSITION") };
-		const fastgltf::Attribute *norm { prim.findAttribute("NORMAL") };
 		switch(prim.type) {
 			case fastgltf::PrimitiveType::Triangles:
 				break;
@@ -439,6 +432,8 @@ void App::loadGLTF(const std::filesystem::path& path) {
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Primitive types other than triangle lists are not supported");
 				break;
 		}
+		const fastgltf::Attribute *pos { prim.findAttribute("POSITION") };
+		const fastgltf::Attribute *norm { prim.findAttribute("NORMAL") };
 
 		SDL_assert(prim.indicesAccessor.has_value());
 		SDL_assert(pos);
