@@ -71,6 +71,13 @@ public:
 		return ptr;
 	}
 	void release() {
+		if (!gpu) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Tried to release %s, but the GPU device is invalid", GPUResourceTraits<TYPE>::description);
+			return;
+		} else if (!ptr) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Tried to release %s, but there is no resource to release, did you create it?", GPUResourceTraits<TYPE>::description);
+			return;
+		}
 		GPUResourceTraits<TYPE>::release(gpu, ptr); 
 		gpu = nullptr;
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Released %s", GPUResourceTraits<TYPE>::description);
