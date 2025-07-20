@@ -30,7 +30,7 @@ void SDLCALL fileDialogue(void* userdata, const char* const* filelist, int filte
 }
 
 // load a shader
-SDL_GPUShader* App::createShader(GPUResource<SDL_GPUShader> *shader, const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers) {
+SDL_GPUShader* App::createShader(GPUResource<SHADER> *shader, const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers) {
 	// Auto-detect the shader stage from the file name for convenience
 	SDL_GPUShaderStage stage;
 	if (filename.contains(".vert")) {

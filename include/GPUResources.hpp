@@ -1,71 +1,85 @@
+#pragma once
 #include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_init.h>
 
+enum RESOURCE_TYPES {
+	TEXTURE,
+	SAMPLER,
+	BUFFER,
+	SHADER,
+	GRAPHICS_PIPELINE
+};
+
 // define create & release function for 
 // objects that must be released
 // using a SDL_GPUDevice handle
-template<typename> struct GPUResourceTraits { };
-template<> struct GPUResourceTraits<SDL_GPUTexture> {
+template<RESOURCE_TYPES> struct GPUResourceTraits { };
+template<> struct GPUResourceTraits<TEXTURE> {
 	using info = SDL_GPUTextureCreateInfo;
-	static constexpr auto resource_type = "Texture";
+	using type = SDL_GPUTexture;
+	static constexpr auto description = "Texture";
 	static constexpr auto create = SDL_CreateGPUTexture;
 	static constexpr auto release = SDL_ReleaseGPUTexture;
 };
-template<> struct GPUResourceTraits<SDL_GPUSampler> {
+template<> struct GPUResourceTraits<SAMPLER> {
 	using info = SDL_GPUSamplerCreateInfo;
-	static constexpr auto resource_type = "Sampler";
+	using type = SDL_GPUSampler;
+	static constexpr auto description = "Sampler";
 	static constexpr auto create = SDL_CreateGPUSampler;
 	static constexpr auto release = SDL_ReleaseGPUSampler;
 };
-template<> struct GPUResourceTraits<SDL_GPUBuffer> {
+template<> struct GPUResourceTraits<BUFFER> {
 	using info = SDL_GPUBufferCreateInfo;
-	static constexpr auto resource_type = "Buffer";
+	using type = SDL_GPUBuffer;
+	static constexpr auto description = "Buffer";
 	static constexpr auto create = SDL_CreateGPUBuffer;
 	static constexpr auto release = SDL_ReleaseGPUBuffer;
 };
-template<> struct GPUResourceTraits<SDL_GPUShader> {
+template<> struct GPUResourceTraits<SHADER> {
 	using info = SDL_GPUShaderCreateInfo;
-	static constexpr auto resource_type = "Shader";
+	using type = SDL_GPUShader;
+	static constexpr auto description = "Shader";
 	static constexpr auto create = SDL_CreateGPUShader;
 	static constexpr auto release = SDL_ReleaseGPUShader;
 };
-template<> struct GPUResourceTraits<SDL_GPUGraphicsPipeline> {
+template<> struct GPUResourceTraits<GRAPHICS_PIPELINE> {
 	using info = SDL_GPUGraphicsPipelineCreateInfo;
-	static constexpr auto resource_type = "Graphics Pipeline";
+	using type = SDL_GPUGraphicsPipeline;
+	static constexpr auto description = "Graphics Pipeline";
 	static constexpr auto create = SDL_CreateGPUGraphicsPipeline;
 	static constexpr auto release = SDL_ReleaseGPUGraphicsPipeline;
 };
 
 // A GPUResource will automatically get the create & release function from GPUResourceTraits
-template<typename Type> class GPUResource {
+template<RESOURCE_TYPES TYPE> class GPUResource {
 public:
 	GPUResource() { }
 	~GPUResource() { }
 	// All pointers stored inside resource.info must be valid
 	// when resource.create is called
-	GPUResourceTraits<Type>::info info;
+	GPUResourceTraits<TYPE>::info info;
 	// creates a gpu resource using the current value of resource.info
-	Type* create(SDL_GPUDevice* t_gpu) {
+	GPUResourceTraits<TYPE>::type* create(SDL_GPUDevice* t_gpu) {
 		gpu = t_gpu;
-		ptr = GPUResourceTraits<Type>::create(gpu, &info);
+		ptr = GPUResourceTraits<TYPE>::create(gpu, &info);
 		if (!ptr) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Creating %s - Fail!\n\tERR: %s", GPUResourceTraits<Type>::resource_type, SDL_GetError());
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Creating %s - Fail!\n\t%s", GPUResourceTraits<TYPE>::description, SDL_GetError());
 		} else {
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Creating %s - Success!", GPUResourceTraits<Type>::resource_type);
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Creating %s - Success!", GPUResourceTraits<TYPE>::description);
 		}
 		return ptr;
 	}
 	void release() {
-		GPUResourceTraits<Type>::release(gpu, ptr); 
+		GPUResourceTraits<TYPE>::release(gpu, ptr); 
 		gpu = nullptr;
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Released %s", GPUResourceTraits<Type>::resource_type);
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Released %s", GPUResourceTraits<TYPE>::description);
 	}
-	Type* get() const { return ptr; }
+	GPUResourceTraits<TYPE>::type* get() const { return ptr; }
 	GPUResource(const GPUResource &other) = delete;
 	GPUResource(const GPUResource &&other) = delete;
-	GPUResource<Type>& operator=(const GPUResource<Type>&) = delete;
+	GPUResource<TYPE>& operator=(const GPUResource<TYPE>&) = delete;
 private:
-	Type* ptr;
+	GPUResourceTraits<TYPE>::type *ptr;
 	SDL_GPUDevice *gpu;
 };

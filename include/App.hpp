@@ -1,3 +1,4 @@
+#pragma once
 #include <unordered_map>
 #include <vector>
 
@@ -104,11 +105,11 @@ private:
 	};
 	SDL_GPUDevice *m_gpu;
 	SDL_Window *m_window;
-	GPUResource<SDL_GPUGraphicsPipeline> m_pp_pipeline, m_geo_pipeline;
-	GPUResource<SDL_GPUShader> m_geo_v_shader, m_geo_f_shader, m_pp_v_shader, m_pp_f_shader;
-	GPUResource<SDL_GPUBuffer> m_i_buf, m_v_buf, m_norm_buf;
-	GPUResource<SDL_GPUSampler> m_depth_sampler;
-	GPUResource<SDL_GPUTexture> m_color, m_depth;
+	GPUResource<GRAPHICS_PIPELINE> m_pp_pipeline, m_geo_pipeline;
+	GPUResource<SHADER> m_geo_v_shader, m_geo_f_shader, m_pp_v_shader, m_pp_f_shader;
+	GPUResource<BUFFER> m_i_buf, m_v_buf, m_norm_buf;
+	GPUResource<SAMPLER> m_depth_sampler;
+	GPUResource<TEXTURE> m_color, m_depth;
 
 	Uint32 m_width { 1200 }, m_height { 900 };
 	std::vector<Mesh> m_objects;
@@ -122,5 +123,5 @@ private:
 	// returns nullptr on failure, valid SDL_GPUShader* otherwise
 	// if successful, the return value is also stored within the GPUResource
 	// otherwise, the GPUResource remains untouched
-	SDL_GPUShader* createShader(GPUResource<SDL_GPUShader> *shader, const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers);
+	SDL_GPUShader* createShader(GPUResource<SHADER> *shader, const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers);
 };
