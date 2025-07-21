@@ -3,6 +3,8 @@
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_init.h>
 
+#include <string>
+
 enum RESOURCE_TYPES {
 	TEXTURE,
 	SAMPLER,
@@ -90,3 +92,9 @@ private:
 	GPUResourceTraits<TYPE>::type *ptr;
 	SDL_GPUDevice *gpu;
 };
+
+// helper functions
+// returns nullptr on failure, valid SDL_GPUShader* otherwise
+// if successful, the return value is also stored within the GPUResource
+// otherwise, the GPUResource remains untouched
+SDL_GPUShader* createShader(SDL_GPUDevice *gpu, GPUResource<SHADER> *shader, const std::string &filename, const Uint32 &num_samplers, const Uint32 &num_storage_textures, const Uint32 &num_storage_buffers, const Uint32 &num_uniform_buffers);
