@@ -1,5 +1,4 @@
 #include "Pipelines.hpp"
-// initialize pipeline
 SDL_AppResult BlinnPhongPipeline::init(SDL_GPUDevice *gpu) {
 	if (!createShader(gpu, &m_v_shader, "PositionTransform.vert", 0, 0, 0, 1))
 		return SDL_APP_FAILURE;
@@ -42,12 +41,7 @@ SDL_AppResult BlinnPhongPipeline::init(SDL_GPUDevice *gpu) {
 void BlinnPhongPipeline::quit() {
 	m_pipeline.release(); 
 }
-
-// render 3D geometry to color & depth texture
-// the buffers, camera data, and mesh data
-// are all used in the shaders
-// for this pipeline
-void BlinnPhongPipeline::render(SDL_GPUCommandBuffer *cmdbuf, const Camera &camera, const std::vector<Mesh> &TRS_data, const GPUResource<BUFFER> &indices, const GPUResource<BUFFER> &verts, const GPUResource<BUFFER> &norms, const GPUResource<TEXTURE> &color, const GPUResource<TEXTURE> &depth) {
+void BlinnPhongPipeline::render(SDL_GPUCommandBuffer *cmdbuf, const GPUResource<TEXTURE> &color, const GPUResource<TEXTURE> &depth, const Camera &camera, const std::vector<Mesh> &TRS_data, const GPUResource<BUFFER> &indices, const GPUResource<BUFFER> &verts, const GPUResource<BUFFER> &norms) {
 	SDL_GPUColorTargetInfo color_target_info {
 		.texture = color.get(),
 		.clear_color = {0, 0, 0, 0},
@@ -137,9 +131,6 @@ SDL_AppResult OutlinePipeline::init(SDL_Window *window, SDL_GPUDevice *gpu) {
 void OutlinePipeline::quit() {
 	m_pipeline.release();
 }
-// render pipeline to destination texture
-// color & depth textures are sampled
-// to create the outline effect
 void OutlinePipeline::render(SDL_GPUCommandBuffer* cmdbuf, SDL_GPUTexture *dest, GPUResource<TEXTURE> &color, GPUResource<TEXTURE> &depth) {
 	SDL_GPUColorTargetInfo swapchain_target_info {
 		.texture = dest,
@@ -158,43 +149,27 @@ void OutlinePipeline::render(SDL_GPUCommandBuffer* cmdbuf, SDL_GPUTexture *dest,
 	SDL_EndGPURenderPass(render_pass);
 }
 
-// returns the model matrix of mesh
+// Mesh methods
 glm::mat4x4 Mesh::model_mat() const {
 	return { glm::scale(glm::translate(glm::mat4(1), pos), scale) * glm::mat4_cast(rot) };
 }
 
 // Camera methods
-// returns view matrix of camera
 glm::mat4 Camera::view() const {
 	return glm::mat4_cast(m_rot) * glm::translate(glm::mat4(1), -m_pos);
 }
-// returns projection matrix of camera
 glm::mat4 Camera::proj() const {
 	return glm::perspective(SDL_PI_F * 0.25f, m_dimensions.x / m_dimensions.y, m_near_far.x, m_near_far.y);
 }
-// resize the lense of camera (rect)
-void Camera::resize(const float &width, const float &height) {
-	m_dimensions = {width, height};
-}
-// returns forward direction of camera
 glm::vec3 Camera::forward() const {
 	return glm::conjugate(m_rot) * glm::vec3(0.0f, 0.0f, -1.0f);
 }
-// returns up direction of camera
 glm::vec3 Camera::up() const {
 	return glm::conjugate(m_rot) * glm::vec3(0.0f, 1.0f, 0.0f);
 }
-// returns right direction of camera
 glm::vec3 Camera::right() const {
 	return glm::conjugate(m_rot) * glm::vec3(1.0f, 0.0f, 0.0f);
 }
-// returns rotation of camera
-void Camera::rot(const float &pitch, const float &yaw) {
-	m_rot = glm::rotate(m_rot, pitch, right());
-	m_rot = glm::rotate(m_rot, yaw, {0, 1, 0});
-}
-// move camera based on current inputs
-// called once every frame
 void Camera::iterate() {
 	glm::vec3 acc = {0, 0, 0};
 	if (m_keys.contains(SDL_SCANCODE_W) && m_keys.at(SDL_SCANCODE_W))
@@ -227,8 +202,6 @@ void Camera::iterate() {
 	if (set_zero_axis[2])
 		m_vel.z = 0;
 }
-// update inputs
-// called once every input event
 void Camera::event(SDL_Event *e) {
 	switch(e->type) {
 	case SDL_EVENT_KEY_DOWN:
@@ -250,7 +223,7 @@ void Camera::event(SDL_Event *e) {
 		break;
 	}
 	case SDL_EVENT_WINDOW_RESIZED:
-		resize(e->window.data1, e->window.data2);
+		m_dimensions = { e->window.data1, e->window.data2 };
 		break;
 	}
 }

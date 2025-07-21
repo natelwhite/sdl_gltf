@@ -19,17 +19,24 @@ class Camera {
 public:
 	Camera(const glm::vec3 &t_pos, const glm::quat &t_rot, const glm::vec2 &t_dimensions)
 	: m_pos(t_pos), m_rot(t_rot), m_dimensions(t_dimensions) { }
-	glm::mat4 view() const;
-	glm::mat4 proj() const;
-	void resize(const float &width, const float &height);
-	glm::vec3 forward() const;
-	glm::vec3 up() const;
-	glm::vec3 right() const;
-	void rot(const float &pitch, const float &yaw);
 	void iterate();
+	/**
+	 * Update camera based on event 
+	 *
+	 * @param e The application's event data
+	 */
 	void event(SDL_Event *e);
 	glm::vec3 getPosition() const { return m_pos; }
 	glm::vec2 getNearFar() const { return m_near_far; }
+	// returns view matrix of camera
+	glm::mat4 view() const;
+	// returns projection matrix of camera
+	glm::mat4 proj() const;
+	glm::vec3 forward() const;
+	// returns up direction of camera
+	glm::vec3 up() const;
+	// returns right direction of camera
+	glm::vec3 right() const;
 private:
 	glm::vec3 m_pos; // (x, y, z) in world space
 	glm::quat m_rot;
@@ -44,9 +51,26 @@ class BlinnPhongPipeline {
 public:
 	BlinnPhongPipeline() { }
 	~BlinnPhongPipeline() { }
+	/**
+	 * Initialize pipeline
+	 *
+	 * @param gpu A valid GPUDevice handle
+	 */
 	SDL_AppResult init(SDL_GPUDevice *gpu);
 	void quit();
-	void render(SDL_GPUCommandBuffer *cmdbuf, const Camera &camera, const std::vector<Mesh> &TRS_data, const GPUResource<BUFFER> &indices, const GPUResource<BUFFER> &verts, const GPUResource<BUFFER> &norms, const GPUResource<TEXTURE> &color, const GPUResource<TEXTURE> &depth);
+	/**
+	 * Render 3D geometry
+	 *
+	 * @param cmdbuf The command buffer associated with this render pass
+	 * @param color Color texture for render output
+	 * @param depth Depth texture for render output
+	 * @param camera The perspective to render from
+	 * @param TRS_data A vector of meshes to render
+	 * @param indices A buffer of vertex indices that correspond to the meshes
+	 * @param verts A buffer of vertex positions that correspond to the meshes
+	 * @param norms A buffer of vertex normals that correspond to the meshes
+	 */
+	void render(SDL_GPUCommandBuffer *cmdbuf, const GPUResource<TEXTURE> &color, const GPUResource<TEXTURE> &depth, const Camera &camera, const std::vector<Mesh> &TRS_data, const GPUResource<BUFFER> &indices, const GPUResource<BUFFER> &verts, const GPUResource<BUFFER> &norms);
 private:
 	GPUResource<GRAPHICS_PIPELINE> m_pipeline;
 	GPUResource<SHADER> m_v_shader, m_f_shader;
@@ -88,6 +112,14 @@ public:
 	~OutlinePipeline() { }
 	SDL_AppResult init(SDL_Window *window, SDL_GPUDevice *gpu);
 	void quit();
+	/**
+	 * Render 3D geometry
+	 *
+	 * @param cmdbuf The command buffer associated with this render pass
+	 * @param dest The destination texture to render to
+	 * @param color Color texture for render input
+	 * @param depth Depth texture for render input
+	 */
 	void render(SDL_GPUCommandBuffer* cmdbuf, SDL_GPUTexture *dest, GPUResource<TEXTURE> &color, GPUResource<TEXTURE> &depth);
 private:
 	GPUResource<GRAPHICS_PIPELINE> m_pipeline;

@@ -139,7 +139,7 @@ SDL_AppResult App::iterate() {
 	}
 
 	// render geometry to color & depth textures
-	m_blinnphong_pipeline.render(cmdbuf, m_camera, m_objects, m_i_buf, m_v_buf, m_norm_buf, m_color, m_depth);
+	m_blinnphong_pipeline.render(cmdbuf, m_color, m_depth, m_camera, m_objects, m_i_buf, m_v_buf, m_norm_buf);
 
 	// render color & depth textures to window
 	SDL_GPUTexture *swapchain;
