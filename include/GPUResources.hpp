@@ -1,7 +1,6 @@
 #pragma once
 #include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_log.h>
-#include <SDL3/SDL_init.h>
 
 #include <string>
 

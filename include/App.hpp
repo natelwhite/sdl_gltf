@@ -1,19 +1,12 @@
 #pragma once
-#include <unordered_map>
 #include <vector>
 
-#include <SDL3/SDL_events.h>
 #include <SDL3/SDL_gpu.h>
-#include <SDL3/SDL_video.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_init.h>
 
-#include <fastgltf/types.hpp>
+#include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
-
-#include <glm/vec3.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/gtc/quaternion.hpp>
 
 #include "GPUResources.hpp"
 #include "Pipelines.hpp"

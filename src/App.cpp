@@ -1,4 +1,4 @@
-#include <fastgltf/core.hpp>
+//#include <fastgltf/core.hpp>
 
 #include "App.hpp"
 
