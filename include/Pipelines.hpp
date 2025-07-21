@@ -110,6 +110,11 @@ class OutlinePipeline {
 public:
 	OutlinePipeline() { }
 	~OutlinePipeline() { }
+	/**
+	 * Initialize pipeline
+	 *
+	 * @param gpu A valid GPUDevice handle
+	 */
 	SDL_AppResult init(SDL_Window *window, SDL_GPUDevice *gpu);
 	void quit();
 	/**

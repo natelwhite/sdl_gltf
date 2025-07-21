@@ -1,5 +1,3 @@
-//#include <fastgltf/core.hpp>
-
 #include "App.hpp"
 
 // callback function for opening files
