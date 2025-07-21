@@ -117,9 +117,9 @@ SDL_AppResult App::init() {
 		return SDL_APP_FAILURE;
 	if (!createShader(&m_geo_f_shader, "SolidColorDepth.frag", 0, 0, 0, 1))
 		return SDL_APP_FAILURE;
-	if (!createShader(&m_pp_v_shader, "Window.vert", 0, 0, 0, 0))
+	if (!createShader(&m_outline_v_shader, "Window.vert", 0, 0, 0, 0))
 		return SDL_APP_FAILURE;
-	if (!createShader(&m_pp_f_shader, "DepthOutline.frag", 2, 0, 0, 1))
+	if (!createShader(&m_outline_f_shader, "DepthOutline.frag", 2, 0, 0, 1))
 		return SDL_APP_FAILURE;
 
 	// create post processing pipeline
@@ -135,18 +135,18 @@ SDL_AppResult App::init() {
 			.enable_blend = true,
 		}
 	};
-	m_pp_pipeline.info = {
-		.vertex_shader = m_pp_v_shader.get(),
-		.fragment_shader = m_pp_f_shader.get(),
+	m_outline_pipeline.info = {
+		.vertex_shader = m_outline_v_shader.get(),
+		.fragment_shader = m_outline_f_shader.get(),
 		.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
 		.target_info = {
 			.color_target_descriptions = &pp_color_target_description,
 			.num_color_targets = 1,
 		}
 	};
-	m_pp_pipeline.create(m_gpu);
-	m_pp_v_shader.release();
-	m_pp_f_shader.release();
+	m_outline_pipeline.create(m_gpu);
+	m_outline_v_shader.release();
+	m_outline_f_shader.release();
 
 	// create geometry pipeline
 	SDL_GPUVertexBufferDescription vert_buf_descriptions[2] { {
@@ -206,7 +206,7 @@ SDL_AppResult App::init() {
 	};
 	m_geo_pipeline.create(m_gpu);
 	m_geo_v_shader.release();
-	m_pp_f_shader.release();
+	m_geo_f_shader.release();
 
 	// create textures
 	m_depth.info = {
@@ -250,7 +250,7 @@ void App::quit() {
 	m_color.release();
 	m_depth.release();
 	m_depth_sampler.release();
-	m_pp_pipeline.release();
+	m_outline_pipeline.release();
 	m_geo_pipeline.release();
 	m_i_buf.release();
 	m_v_buf.release();
@@ -365,7 +365,7 @@ SDL_AppResult App::iterate() {
 		.store_op = SDL_GPU_STOREOP_STORE
 	};
 	render_pass = SDL_BeginGPURenderPass(cmdbuf, &swapchain_target_info, 1, nullptr);
-	SDL_BindGPUGraphicsPipeline(render_pass, m_pp_pipeline.get());
+	SDL_BindGPUGraphicsPipeline(render_pass, m_outline_pipeline.get());
 	SDL_GPUTextureSamplerBinding sampler_bindings[] {
 		{ .texture = m_color.get(), .sampler = m_depth_sampler.get() },
 		{ .texture = m_depth.get(), .sampler = m_depth_sampler.get() },

@@ -102,8 +102,8 @@ private:
 	};
 	SDL_GPUDevice *m_gpu;
 	SDL_Window *m_window;
-	GPUResource<GRAPHICS_PIPELINE> m_pp_pipeline, m_geo_pipeline;
-	GPUResource<SHADER> m_geo_v_shader, m_geo_f_shader, m_pp_v_shader, m_pp_f_shader;
+	GPUResource<GRAPHICS_PIPELINE> m_outline_pipeline, m_geo_pipeline;
+	GPUResource<SHADER> m_geo_v_shader, m_geo_f_shader, m_outline_v_shader, m_outline_f_shader;
 	GPUResource<BUFFER> m_i_buf, m_v_buf, m_norm_buf;
 	GPUResource<SAMPLER> m_depth_sampler;
 	GPUResource<TEXTURE> m_color, m_depth;
