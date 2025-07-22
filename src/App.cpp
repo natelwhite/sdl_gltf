@@ -48,9 +48,9 @@ SDL_AppResult App::init() {
 	}
 
 	// init pipelines
-	if (m_blinnphong_pipeline.init(m_gpu) == SDL_APP_FAILURE)
+	if (m_blinnphong_pipeline.init(m_gpu) != 0)
 		return SDL_APP_FAILURE;
-	if (m_outline_pipeline.init(m_window, m_gpu) == SDL_APP_FAILURE)
+	if (m_outline_pipeline.init(m_window, m_gpu) != 0)
 		return SDL_APP_FAILURE;
 
 	// create textures
