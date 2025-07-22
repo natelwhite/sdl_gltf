@@ -118,7 +118,7 @@ public:
 	SDL_AppResult init(SDL_Window *window, SDL_GPUDevice *gpu);
 	void quit();
 	/**
-	 * Render 3D geometry
+	 * Render 3D geometry with outline to texture
 	 *
 	 * @param cmdbuf The command buffer associated with this render pass
 	 * @param dest The destination texture to render to

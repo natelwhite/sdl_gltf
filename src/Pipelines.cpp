@@ -59,11 +59,6 @@ void BlinnPhongPipeline::render(SDL_GPUCommandBuffer *cmdbuf, const GPUResource<
 		.cycle = true,
 		.clear_stencil = 0,
 	};
-	const FragmentUniforms frag_uniforms { 
-		camera.getNearFar(),
-		camera.getPosition()
-	};
-	SDL_PushGPUFragmentUniformData(cmdbuf, 0, &frag_uniforms, sizeof(frag_uniforms));
 	const SDL_GPUBufferBinding i_buf_binding {
 		.buffer = indices.get(),
 		.offset = 0
@@ -75,6 +70,11 @@ void BlinnPhongPipeline::render(SDL_GPUCommandBuffer *cmdbuf, const GPUResource<
 			.buffer = norms.get(),
 			.offset = 0
 	} };
+	const FragmentUniforms frag_uniforms { 
+		camera.getNearFar(),
+		camera.getPosition()
+	};
+	SDL_PushGPUFragmentUniformData(cmdbuf, 0, &frag_uniforms, sizeof(frag_uniforms));
 	VertexUniforms vert_uniforms;
 	vert_uniforms.proj_view = camera.proj() * camera.view();
 	SDL_GPURenderPass *render_pass { SDL_BeginGPURenderPass(cmdbuf, &color_target_info, 1, &depth_stencil_target_info) };
