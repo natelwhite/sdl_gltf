@@ -1,5 +1,6 @@
 #include "Pipelines.hpp"
 #include "SDL3/SDL_gpu.h"
+#include "glm/ext/matrix_clip_space.hpp"
 SDL_AppResult BlinnPhongPipeline::init(SDL_GPUDevice *gpu) {
 	if (!createShader(gpu, &m_v_shader, "PositionTransform.vert", 0, 0, 0, 1))
 		return SDL_APP_FAILURE;
@@ -71,8 +72,8 @@ void BlinnPhongPipeline::render(SDL_GPUCommandBuffer *cmdbuf, const GPUResource<
 			.offset = 0
 	} };
 	const FragmentUniforms frag_uniforms { 
-		camera.getNearFar(),
-		camera.getPosition()
+		camera.near_far,
+		camera.pos
 	};
 	SDL_PushGPUFragmentUniformData(cmdbuf, 0, &frag_uniforms, sizeof(frag_uniforms));
 	VertexUniforms vert_uniforms;
@@ -157,52 +158,37 @@ glm::mat4x4 Mesh::model_mat() const {
 }
 
 // Camera methods
-glm::mat4 Camera::view() const {
-	return glm::mat4_cast(m_rot) * glm::translate(glm::mat4(1), -m_pos);
-}
-glm::mat4 Camera::proj() const {
-	return glm::perspective(SDL_PI_F * 0.25f, m_dimensions.x / m_dimensions.y, m_near_far.x, m_near_far.y);
-}
-glm::vec3 Camera::forward() const {
-	return glm::conjugate(m_rot) * glm::vec3(0.0f, 0.0f, -1.0f);
-}
-glm::vec3 Camera::up() const {
-	return glm::conjugate(m_rot) * glm::vec3(0.0f, 1.0f, 0.0f);
-}
-glm::vec3 Camera::right() const {
-	return glm::conjugate(m_rot) * glm::vec3(1.0f, 0.0f, 0.0f);
-}
 void Camera::iterate() {
 	glm::vec3 acc = {0, 0, 0};
 	if (m_keys.contains(SDL_SCANCODE_W) && m_keys.at(SDL_SCANCODE_W))
-		acc += m_speed * forward();
+		acc += speed * forward();
 	if (m_keys.contains(SDL_SCANCODE_A) && m_keys.at(SDL_SCANCODE_A))
-		acc += m_speed * -right();
+		acc += speed * -right();
 	if (m_keys.contains(SDL_SCANCODE_S) && m_keys.at(SDL_SCANCODE_S))
-		acc += m_speed * -forward();
+		acc += speed * -forward();
 	if (m_keys.contains(SDL_SCANCODE_D) && m_keys.at(SDL_SCANCODE_D))
-		acc += m_speed * right();
+		acc += speed * right();
 	if (m_keys.contains(SDL_SCANCODE_E) && m_keys.at(SDL_SCANCODE_E))
-		acc += m_speed * up();
+		acc += speed * up();
 	if (m_keys.contains(SDL_SCANCODE_Q) && m_keys.at(SDL_SCANCODE_Q))
-		acc += m_speed * -up();
-	m_vel += acc;
-	m_pos += m_vel;
-	const glm::vec3 drag { m_vel * -0.1f };
-	m_vel += drag;
+		acc += speed * -up();
+	vel += acc;
+	pos += vel;
+	const glm::vec3 drag { vel * -0.1f };
+	vel += drag;
 	// when velocity is close to zero, make it zero
 	const float epsilon { 0.01 };
 	bool set_zero_axis[] {
-		glm::abs(m_vel.x) < epsilon && glm::abs(m_vel.x) > 0, // x
-		glm::abs(m_vel.y) < epsilon && glm::abs(m_vel.y) > 0, // y
-		glm::abs(m_vel.z) < epsilon && glm::abs(m_vel.z) > 0, // z
+		glm::abs(vel.x) < epsilon && glm::abs(vel.x) > 0, // x
+		glm::abs(vel.y) < epsilon && glm::abs(vel.y) > 0, // y
+		glm::abs(vel.z) < epsilon && glm::abs(vel.z) > 0, // z
 	};
 	if (set_zero_axis[0])
-		m_vel.x = 0;
+		vel.x = 0;
 	if (set_zero_axis[1])
-		m_vel.y = 0;
+		vel.y = 0;
 	if (set_zero_axis[2])
-		m_vel.z = 0;
+		vel.z = 0;
 }
 void Camera::event(SDL_Event *e) {
 	switch(e->type) {
@@ -220,12 +206,27 @@ void Camera::event(SDL_Event *e) {
 		const float sensitivity { 0.001f };
 		float pitch { e->motion.yrel * sensitivity };
 		float yaw { e->motion.xrel * sensitivity };
-		m_rot = glm::rotate(m_rot, pitch, right());
-		m_rot = glm::rotate(m_rot, yaw, {0, 1, 0});
+		rot = glm::rotate(rot, pitch, right());
+		rot = glm::rotate(rot, yaw, {0, 1, 0});
 		break;
 	}
 	case SDL_EVENT_WINDOW_RESIZED:
-		m_dimensions = { e->window.data1, e->window.data2 };
+		dimensions = { e->window.data1, e->window.data2 };
 		break;
 	}
+}
+glm::mat4 Camera::view() const {
+	return glm::mat4_cast(rot) * glm::translate(glm::mat4(1), -pos);
+}
+glm::mat4 Camera::proj() const {
+	return glm::perspective(SDL_PI_F * 0.25f, dimensions.x / dimensions.y, near_far.x, near_far.y);
+}
+glm::vec3 Camera::forward() const {
+	return glm::conjugate(rot) * glm::vec3(0.0f, 0.0f, -1.0f);
+}
+glm::vec3 Camera::up() const {
+	return glm::conjugate(rot) * glm::vec3(0.0f, 1.0f, 0.0f);
+}
+glm::vec3 Camera::right() const {
+	return glm::conjugate(rot) * glm::vec3(1.0f, 0.0f, 0.0f);
 }

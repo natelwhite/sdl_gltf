@@ -125,8 +125,8 @@ SDL_AppResult App::iterate() {
 	// update camera data & sort objects by distance from camera
 	m_camera.iterate();
 	std::sort(m_objects.begin(), m_objects.end(), [&](const Mesh &a, const Mesh &b) -> bool {
-		const float dist_a { glm::distance(m_camera.getPosition(), a.pos) };
-		const float dist_b { glm::distance(m_camera.getPosition(), b.pos) };
+		const float dist_a { glm::distance(m_camera.pos, a.pos) };
+		const float dist_b { glm::distance(m_camera.pos, b.pos) };
 		return dist_a ? dist_a > dist_b : dist_b;
 	});
 

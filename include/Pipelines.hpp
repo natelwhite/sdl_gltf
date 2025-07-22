@@ -15,10 +15,10 @@ struct Mesh {
 	glm::mat4x4 model_mat() const;
 };
 
-class Camera {
-public:
+struct Camera {
 	Camera(const glm::vec3 &t_pos, const glm::quat &t_rot, const glm::vec2 &t_dimensions)
-	: m_pos(t_pos), m_rot(t_rot), m_dimensions(t_dimensions) { }
+	: pos(t_pos), rot(t_rot), dimensions(t_dimensions) { }
+	// update camera position
 	void iterate();
 	/**
 	 * Update camera based on event 
@@ -26,8 +26,6 @@ public:
 	 * @param e The application's event data
 	 */
 	void event(SDL_Event *e);
-	glm::vec3 getPosition() const { return m_pos; }
-	glm::vec2 getNearFar() const { return m_near_far; }
 	// returns view matrix of camera
 	glm::mat4 view() const;
 	// returns projection matrix of camera
@@ -37,13 +35,13 @@ public:
 	glm::vec3 up() const;
 	// returns right direction of camera
 	glm::vec3 right() const;
+	glm::vec3 pos; // (x, y, z) in world space
+	glm::quat rot;
+	glm::vec2 dimensions; // (x, y) -> (width, height)
+	glm::vec3 vel { 0, 0, 0 }; // (x, y, z) in world space
+	const float speed { 0.5 };
+	glm::vec2 near_far { 0.1, 1000 }; // (x, y) -> (near, far)
 private:
-	glm::vec3 m_pos; // (x, y, z) in world space
-	glm::quat m_rot;
-	glm::vec2 m_dimensions; // (x, y) -> (width, height)
-	glm::vec3 m_vel { 0, 0, 0 }; // (x, y, z) in world space
-	const float m_speed { 0.5 };
-	glm::vec2 m_near_far { 0.1, 1000 }; // (x, y) -> (near, far)
 	std::unordered_map<SDL_Scancode, bool> m_keys;
 };
 
