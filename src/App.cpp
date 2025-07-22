@@ -284,27 +284,23 @@ void App::loadGLTF(const std::filesystem::path& path) {
 			{ sizeOfBuffer(norm_access), static_cast<Uint32>(norm_access.count) }
 		};
 		// create transfer buffer
-		SDL_GPUTransferBufferCreateInfo trans_buf_create {
+		GPUResource<TRANSFER_BUFFER> transfer_buf;
+		transfer_buf.info = {
 			.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
 			.size = prim_info.indices.bytes + 
 					prim_info.verts.bytes + 
 					prim_info.norms.bytes,
 		};
-		SDL_GPUTransferBuffer *trans_buf = SDL_CreateGPUTransferBuffer(m_gpu, &trans_buf_create);
-		if (!trans_buf) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUTransferBuffer failed:\n\t%s", SDL_GetError());
-			return { };
-		}
-		Uint16 *i_data { static_cast<Uint16*>(SDL_MapGPUTransferBuffer(m_gpu, trans_buf, false)) };
+		if (!transfer_buf.create(m_gpu)) { return { }; }
+		Uint16 *i_data { static_cast<Uint16*>(SDL_MapGPUTransferBuffer(m_gpu, transfer_buf.get(), false)) };
 		fastgltf::copyFromAccessor<Uint16>(asset.get(), i_access, i_data);
 		glm::vec3 *v_data { reinterpret_cast<glm::vec3*>(i_data + prim_info.indices.count) };
 		fastgltf::copyFromAccessor<glm::vec3>(asset.get(), v_access, v_data);
 		glm::vec3 *norm_data { v_data + v_access.count };
 		fastgltf::copyFromAccessor<glm::vec3>(asset.get(), norm_access, norm_data);
-		SDL_UnmapGPUTransferBuffer(m_gpu, trans_buf);
 		// move data to gpu using copy pass
 		SDL_GPUTransferBufferLocation trans_buf_loc {
-			.transfer_buffer = trans_buf,
+			.transfer_buffer = transfer_buf.get(),
 			.offset = 0
 		};
 		const SDL_GPUBufferRegion attribute_regions[3] {
@@ -312,12 +308,13 @@ void App::loadGLTF(const std::filesystem::path& path) {
 			{ m_v_buf.get(), offsets.verts.bytes, prim_info.verts.bytes },
 			{ m_norm_buf.get(), offsets.norms.bytes, prim_info.norms.bytes }
 		};
+		SDL_UnmapGPUTransferBuffer(m_gpu, transfer_buf.get());
 		SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &attribute_regions[0], false);
 		trans_buf_loc.offset += prim_info.indices.bytes;
 		SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &attribute_regions[1], false);
 		trans_buf_loc.offset += prim_info.verts.bytes;
 		SDL_UploadToGPUBuffer(copypass, &trans_buf_loc, &attribute_regions[2], false);
-		SDL_ReleaseGPUTransferBuffer(m_gpu, trans_buf);
+		transfer_buf.release();
 		return prim_info;
 	};
 

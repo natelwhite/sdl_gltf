@@ -1,4 +1,5 @@
 #include "Pipelines.hpp"
+#include "SDL3/SDL_gpu.h"
 SDL_AppResult BlinnPhongPipeline::init(SDL_GPUDevice *gpu) {
 	if (!createShader(gpu, &m_v_shader, "PositionTransform.vert", 0, 0, 0, 1))
 		return SDL_APP_FAILURE;
@@ -42,13 +43,13 @@ void BlinnPhongPipeline::quit() {
 	m_pipeline.release(); 
 }
 void BlinnPhongPipeline::render(SDL_GPUCommandBuffer *cmdbuf, const GPUResource<TEXTURE> &color, const GPUResource<TEXTURE> &depth, const Camera &camera, const std::vector<Mesh> &TRS_data, const GPUResource<BUFFER> &indices, const GPUResource<BUFFER> &verts, const GPUResource<BUFFER> &norms) {
-	SDL_GPUColorTargetInfo color_target_info {
+	const SDL_GPUColorTargetInfo color_target_info {
 		.texture = color.get(),
 		.clear_color = {0, 0, 0, 0},
 		.load_op = SDL_GPU_LOADOP_CLEAR,
 		.store_op = SDL_GPU_STOREOP_STORE
 	};
-	SDL_GPUDepthStencilTargetInfo depth_stencil_target_info {
+	const SDL_GPUDepthStencilTargetInfo depth_stencil_target_info {
 		.texture = depth.get(),
 		.clear_depth = 1,
 		.load_op = SDL_GPU_LOADOP_CLEAR,
@@ -58,28 +59,28 @@ void BlinnPhongPipeline::render(SDL_GPUCommandBuffer *cmdbuf, const GPUResource<
 		.cycle = true,
 		.clear_stencil = 0,
 	};
-	FragmentUniforms frag_uniforms { 
+	const FragmentUniforms frag_uniforms { 
 		camera.getNearFar(),
 		camera.getPosition()
 	};
 	SDL_PushGPUFragmentUniformData(cmdbuf, 0, &frag_uniforms, sizeof(frag_uniforms));
-	SDL_GPURenderPass *render_pass { SDL_BeginGPURenderPass(cmdbuf, &color_target_info, 1, &depth_stencil_target_info) };
-	SDL_GPUBufferBinding i_buf_binding {
+	const SDL_GPUBufferBinding i_buf_binding {
 		.buffer = indices.get(),
 		.offset = 0
 	};
-	SDL_GPUBufferBinding vert_buf_bindings[2] { {
+	const SDL_GPUBufferBinding vert_buf_bindings[2] { {
 			.buffer = verts.get(),
 			.offset = 0
 		}, {
 			.buffer = norms.get(),
 			.offset = 0
 	} };
+	VertexUniforms vert_uniforms;
+	vert_uniforms.proj_view = camera.proj() * camera.view();
+	SDL_GPURenderPass *render_pass { SDL_BeginGPURenderPass(cmdbuf, &color_target_info, 1, &depth_stencil_target_info) };
 	SDL_BindGPUVertexBuffers(render_pass, 0, vert_buf_bindings, SDL_arraysize(vert_buf_bindings));
 	SDL_BindGPUIndexBuffer(render_pass, &i_buf_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
 	SDL_BindGPUGraphicsPipeline(render_pass, m_pipeline.get());
-	VertexUniforms vert_uniforms;
-	vert_uniforms.proj_view = camera.proj() * camera.view();
 	for (const Mesh &mesh : TRS_data) {
 		vert_uniforms.model = mesh.model_mat();
 		SDL_PushGPUVertexUniformData(cmdbuf, 0, &vert_uniforms, sizeof(vert_uniforms));

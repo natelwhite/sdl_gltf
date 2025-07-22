@@ -8,6 +8,7 @@ enum RESOURCE_TYPES {
 	TEXTURE,
 	SAMPLER,
 	BUFFER,
+	TRANSFER_BUFFER,
 	SHADER,
 	GRAPHICS_PIPELINE
 };
@@ -50,6 +51,13 @@ template<> struct GPUResourceTraits<GRAPHICS_PIPELINE> {
 	static constexpr auto description = "Graphics Pipeline";
 	static constexpr auto create = SDL_CreateGPUGraphicsPipeline;
 	static constexpr auto release = SDL_ReleaseGPUGraphicsPipeline;
+};
+template<> struct GPUResourceTraits<TRANSFER_BUFFER> {
+	using info = SDL_GPUTransferBufferCreateInfo;
+	using type = SDL_GPUTransferBuffer;
+	static constexpr auto description = "Transfer Buffer";
+	static constexpr auto create = SDL_CreateGPUTransferBuffer;
+	static constexpr auto release = SDL_ReleaseGPUTransferBuffer;
 };
 
 // A GPUResource will automatically get the create & release function from GPUResourceTraits
