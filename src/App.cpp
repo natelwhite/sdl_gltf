@@ -82,10 +82,10 @@ SDL_AppResult App::init() {
 }
 
 void App::quit() {
-	m_color.release();
-	m_depth.release();
 	m_blinnphong_pipeline.quit();
 	m_outline_pipeline.quit();
+	m_color.release();
+	m_depth.release();
 	m_i_buf.release();
 	m_v_buf.release();
 	m_norm_buf.release();

@@ -18,8 +18,8 @@
 		"generator": "Ninja",
 		"binaryDir": "${sourceDir}/build/default",
 		"cacheVariables": {
-			"CMAKE_CXX_FLAGS": "-Wall",
-			"CMAKE_BUILD_TYPE": "DEBUG",
+			"CMAKE_CXX_FLAGS": "-Wall -Werror",
+			"CMAKE_BUILD_TYPE": "Debug",
 			"CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
 			"CMAKE_CXX_STANDARD": "23",
 			"CMAKE_CXX_STANDARD_REQUIRED": "ON"

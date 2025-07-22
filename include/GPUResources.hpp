@@ -95,6 +95,7 @@ public:
 	GPUResource(const GPUResource &other) = delete;
 	GPUResource(const GPUResource &&other) = delete;
 	GPUResource<TYPE>& operator=(const GPUResource<TYPE>&) = delete;
+	GPUResource<TYPE>& operator=(const GPUResource<TYPE>&&) = delete;
 private:
 	GPUResourceTraits<TYPE>::type *ptr;
 	SDL_GPUDevice *gpu;

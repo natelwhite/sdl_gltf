@@ -131,6 +131,7 @@ SDL_AppResult OutlinePipeline::init(SDL_Window *window, SDL_GPUDevice *gpu) {
 }
 void OutlinePipeline::quit() {
 	m_pipeline.release();
+	m_sampler.release();
 }
 void OutlinePipeline::render(SDL_GPUCommandBuffer* cmdbuf, SDL_GPUTexture *dest, GPUResource<TEXTURE> &color, GPUResource<TEXTURE> &depth) {
 	SDL_GPUColorTargetInfo swapchain_target_info {
