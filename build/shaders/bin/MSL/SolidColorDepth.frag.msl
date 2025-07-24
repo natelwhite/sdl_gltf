@@ -1,0 +1,73 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_UBO
+{
+    float2 near_far;
+    float3 view_pos;
+};
+
+struct Input
+{
+    float4 Position;
+    float3 Normal;
+    float4 WorldPos;
+};
+
+struct Output
+{
+    float4 Color;
+    float Depth;
+};
+
+struct main0_out
+{
+    float4 out_var_SV_Target0 [[color(0)]];
+    float gl_FragDepth [[depth(any)]];
+};
+
+struct main0_in
+{
+    float3 in_var_NORMAL [[user(locn0)]];
+    float4 in_var_TEXCOORD1 [[user(locn1)]];
+};
+
+fragment main0_out main0(main0_in in [[stage_in]], constant type_UBO& UBO [[buffer(0)]], float4 gl_FragCoord [[position]])
+{
+    main0_out out = {};
+    float4 _56 = gl_FragCoord;
+    float3 _55 = in.in_var_NORMAL;
+    float4 _54 = in.in_var_TEXCOORD1;
+    float3 _63 = float3(1.0);
+    float3 _64 = float3(0.0, 100.0, 50.0);
+    float3 _65 = float3(0.100000001490116119384765625);
+    float3 _81 = fast::normalize(float3(0.0, 100.0, 50.0) - in.in_var_TEXCOORD1.xyz);
+    float3 _66 = _81;
+    float3 _84 = float3(1.0) * precise::max(0.0, dot(_81, in.in_var_NORMAL));
+    float3 _67 = _84;
+    float3 _88 = fast::normalize(UBO.view_pos - in.in_var_TEXCOORD1.xyz);
+    float3 _68 = _88;
+    float3 _90 = reflect(-_81, in.in_var_NORMAL);
+    float3 _69 = _90;
+    float3 _95 = float3(1.0) * (powr(precise::max(dot(_88, _90), 0.0), 32.0) * 0.5);
+    float3 _70 = _95;
+    float3 _71 = float3(0.60000002384185791015625, 0.300000011920928955078125, 0.20000000298023223876953125);
+    float4 _102 = float4(float3(0.60000002384185791015625, 0.300000011920928955078125, 0.20000000298023223876953125) * ((float3(0.100000001490116119384765625) + _84) + _95), 1.0);
+    float4 _60 = _102;
+    float _72 = gl_FragCoord.z;
+    float _73 = UBO.near_far.x;
+    float _74 = UBO.near_far.y;
+    float _111 = (gl_FragCoord.z * 2.0) - 1.0;
+    float _61 = _111;
+    float _119 = (((2.0 * UBO.near_far.x) * UBO.near_far.y) / ((UBO.near_far.y + UBO.near_far.x) - (_111 * (UBO.near_far.y - UBO.near_far.x)))) / UBO.near_far.y;
+    float _62 = _119;
+    float _59 = _119;
+    float4 _58 = _102;
+    float _57 = _119;
+    out.out_var_SV_Target0 = _102;
+    out.gl_FragDepth = _119;
+    return out;
+}
+

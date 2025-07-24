@@ -2,6 +2,3 @@
 build/*
 !build/meshes
 !build/shaders
-build/shaders/bin/DXIL/*
-build/shaders/bin/MSL/*
-build/shaders/bin/SPIRV/*
